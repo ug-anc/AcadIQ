@@ -1,0 +1,23 @@
+# --- Environment and Dependencies ---
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+
+# --- Local Secrets (CRITICAL) ---
+.env
+
+# --- Local Data and Databases ---
+storage/
+data/pdfs/
+*.db
+*.sqlite
+
+# --- IDE and OS Files ---
+.pytest_cache/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

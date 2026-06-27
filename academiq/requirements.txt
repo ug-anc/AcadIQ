@@ -1,0 +1,32 @@
+# ---- API ----
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-multipart==0.0.20
+slowapi==0.1.9
+
+# ---- Retrieval / ranking ----
+chromadb==0.5.23
+rank-bm25==0.2.2
+numpy==1.26.4
+
+# ---- Providers (only needed outside DEMO_MODE) ----
+openai==1.59.6
+cohere==5.13.6
+
+# ---- Ingestion ----
+PyMuPDF==1.25.1
+pdfplumber==0.11.4
+pytesseract==0.3.13     # requires the system `tesseract` binary for OCR
+Pillow==11.0.0
+tiktoken==0.8.0
+
+# ---- Evaluation (optional) ----
+ragas==0.2.10
+datasets==3.2.0
+
+# ---- Tests ----
+pytest==8.3.4
+pytest-asyncio==0.25.2
+httpx==0.28.1
