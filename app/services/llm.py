@@ -28,15 +28,23 @@ class Chunk:
     page_number: int
 
 
+# def format_context(chunks: list[Chunk]) -> str:
+#     blocks = []
+#     for c in chunks:
+#         header = (
+#             f"[Source: {c.document_name}, Section {c.section_number}, "
+#             f"Page {c.page_number}]"
+#         )
+#         blocks.append(f"{header}\n{c.text}")
+#     return "\n\n---\n\n".join(blocks)
+
 def format_context(chunks: list[Chunk]) -> str:
-    blocks = []
-    for c in chunks:
-        header = (
-            f"[Source: {c.document_name}, Section {c.section_number}, "
-            f"Page {c.page_number}]"
-        )
-        blocks.append(f"{header}\n{c.text}")
-    return "\n\n---\n\n".join(blocks)
+    formatted = ""
+    for i, chunk in enumerate(chunks, 1):
+        # Access attributes directly, not via .metadata
+        header = f"[{i}] SOURCE: {chunk.document_name}, Section {chunk.section_number}, Page {chunk.page_number}"
+        formatted += f"{header}\n{chunk.text}\n\n"
+    return formatted
 
 
 class LLM(ABC):
@@ -59,6 +67,8 @@ class LocalExtractiveLLM(LLM):
     """
 
     async def generate(self, system_prompt: str, user_query: str) -> str:
+        # for debugging
+        print("DEBUG: LOCAL EXTRACTIVE LLM IS RUNNING!")
         context = _extract_context_section(system_prompt)
         if not context.strip():
             return NOT_FOUND_RESPONSE
@@ -66,8 +76,9 @@ class LocalExtractiveLLM(LLM):
         lines = first_block.split("\n", 1)
         citation = lines[0].strip() if lines else ""
         body = lines[1].strip() if len(lines) > 1 else ""
-        if not citation.startswith("[Source:") or not body:
-            return NOT_FOUND_RESPONSE
+        # if not citation.startswith("[Source:") or not body:
+        #     return NOT_FOUND_RESPONSE
+        return body if body else NOT_FOUND_RESPONSE
         snippet = body[:600].rstrip()
         sources = _collect_sources(context)
         return (
@@ -105,7 +116,7 @@ class OpenAILLM(LLM):
     async def generate(self, system_prompt: str, user_query: str) -> str:
         resp = await self._client.chat.completions.create(
             model=self._gen_model,
-            temperature=0.0,
+            temperature=0.2,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_query},
@@ -157,7 +168,10 @@ def get_llm() -> LLM:
     if _LLM is not None:
         return _LLM
     settings = get_settings()
-    _LLM = OpenAILLM(settings) if settings.LLM_PROVIDER == "openai" else LocalExtractiveLLM()
+    # _LLM = OpenAILLM(settings) if settings.LLM_PROVIDER == "openai" else LocalExtractiveLLM()
+    print("DEBUG: FORCING OPENAILLM (Groq) PROVIDER")
+    _LLM = OpenAILLM(settings)
+
     return _LLM
 
 

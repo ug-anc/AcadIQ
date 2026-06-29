@@ -42,6 +42,7 @@ class SourceCitation(BaseModel):
     section: str
     page_number: int
     excerpt: str = Field(..., max_length=150)
+    file_url: str
 
 
 class QueryResponse(BaseModel):

@@ -24,14 +24,20 @@ class Settings(BaseSettings):
 
     # ---- Mode -------------------------------------------------------------
     # DEMO_MODE forces local providers so the app runs with zero API keys.
-    DEMO_MODE: bool = True
+    # DEMO_MODE: bool = True
+    DEMO_MODE: bool = False
 
     # ---- Providers (overridden to "local" when DEMO_MODE is true) ---------
     EMBEDDING_PROVIDER: Literal["openai", "local"] = "openai"
     LLM_PROVIDER: Literal["openai", "local"] = "openai"
     RERANKER: Literal["cohere", "identity"] = "cohere"
 
+    LLM_GEN_MODEL: str = "llama-3.3-70b-versatile"
+    LLM_REWRITE_MODEL: str = "llama-3.3-70b-versatile"
+
+
     # ---- LLM / Embeddings -------------------------------------------------
+    GROQ_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-large"
     OPENAI_GENERATION_MODEL: str = "gpt-4o"
@@ -76,7 +82,7 @@ class Settings(BaseSettings):
 
     # ---- Document corpus --------------------------------------------------
     PDF_DIR: str = "data/pdfs"
-    COLLEGE_NAME: str = "Example Institute of Technology"
+    COLLEGE_NAME: str = "IIT KANPUR"
 
     # ----------------------------------------------------------------------
     def resolve_providers(self) -> None:

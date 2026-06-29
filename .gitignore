@@ -1,4 +1,4 @@
-# --- Environment and Dependencies ---
+# --- Python Environment ---
 .venv/
 venv/
 env/
@@ -8,12 +8,26 @@ __pycache__/
 
 # --- Local Secrets (CRITICAL) ---
 .env
+.env.example
 
 # --- Local Data and Databases ---
 storage/
-data/pdfs/
+data/
 *.db
 *.sqlite
+# Add these for your Chroma/Vector DBs
+chroma/
+chroma_db/
+.chromadb/
+
+# --- Frontend (Next.js/Node) ---
+next-frontend/node_modules/
+next-frontend/.next/
+next-frontend/out/
+next-frontend/build/
+next-frontend/dist/
+next-frontend/*.log
+next-frontend/.eslintcache
 
 # --- IDE and OS Files ---
 .pytest_cache/
@@ -21,3 +35,4 @@ data/pdfs/
 .idea/
 .DS_Store
 Thumbs.db
+*.log

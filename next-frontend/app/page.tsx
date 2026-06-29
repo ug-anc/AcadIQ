@@ -107,6 +107,7 @@ function BotMessage({
         {data.answer}
       </div>
 
+      {/* Citations Block */}
       {data.citations && data.citations.length > 0 && (
         <details
           style={{
@@ -130,38 +131,40 @@ function BotMessage({
             {data.citations.length} source{data.citations.length > 1 ? "s" : ""} referenced ▸
           </summary>
           {data.citations.map((c, i) => (
-            <div
+            <a
               key={i}
+              href={c.file_url}
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
+                display: "block",
+                textDecoration: "none",
+                color: "inherit",
                 borderTop: "1px solid var(--line)",
                 padding: "12px 14px",
                 fontSize: 13,
               }}
             >
-              <div style={{ fontWeight: 600 }}>
+              <div style={{ fontWeight: 600, color: "var(--navy)" }}>
                 {c.document_name} · Section {c.section} · Page {c.page_number}
               </div>
               {c.excerpt && (
-                <div
-                  style={{
-                    color: "var(--muted)",
-                    fontStyle: "italic",
-                    marginTop: 3,
-                  }}
-                >
+                <div style={{ color: "var(--muted)", fontStyle: "italic", marginTop: 3 }}>
                   &ldquo;{c.excerpt}&rdquo;
                 </div>
               )}
-            </div>
+            </a>
           ))}
         </details>
       )}
 
+      {/* Metadata */}
       <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 10 }}>
         confidence {score} · {lat} ms{data.cached ? " · cached" : ""}
       </div>
 
-      <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center" }}>
+      {/* Feedback Buttons */}
+      <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
         {feedbackDone ? (
           <span style={{ color: "var(--muted)", fontSize: 12 }}>
             Thanks — feedback recorded.
@@ -200,6 +203,13 @@ function BotMessage({
     </div>
   );
 }
+
+
+
+
+
+
+
 
 export default function Home() {
   const [turns, setTurns] = useState<Turn[]>([
@@ -302,7 +312,7 @@ export default function Home() {
         }}
       >
         <div style={{ fontWeight: 700, letterSpacing: "-0.02em", fontSize: 22 }}>
-          Academ<span style={{ color: "var(--navy)" }}>IQ</span>
+          Ask<span style={{ color: "var(--navy)" }}>IITK</span>
         </div>
         <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 2 }}>
           Answers only from official college documents — every claim cited.
@@ -335,9 +345,16 @@ export default function Home() {
               </div>
             </div>
           ) : (
+            // <BotMessage
+            //   key={i}
+            //   turn={turn}
+            //   onFeedback={(helpful) => handleFeedback(i, helpful)}
+            // />
             <BotMessage
               key={i}
               turn={turn}
+              // Pass the citations data here
+              citations={turn.citations}
               onFeedback={(helpful) => handleFeedback(i, helpful)}
             />
           )
