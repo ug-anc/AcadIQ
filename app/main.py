@@ -2,6 +2,8 @@
 
 from contextlib import asynccontextmanager
 
+from app.routers import health
+from app.routers import admin
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -11,7 +13,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app import __version__
 from app.config import get_settings
-from app.routers import admin, health, query
+from app.routers import query
 from app.security import limiter
 from app.services.retrieval import initialize_retrieval_engine
 
@@ -26,7 +28,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="AcademIQ API",
+    title="AskIITK API",
     version=__version__,
     docs_url="/docs",  # enable in prototype; disable in production
     redoc_url=None,
