@@ -33,16 +33,6 @@ class Chunk:
     page_number: int
 
 
-# def format_context(chunks: list[Chunk]) -> str:
-#     blocks = []
-#     for c in chunks:
-#         header = (
-#             f"[Source: {c.document_name}, Section {c.section_number}, "
-#             f"Page {c.page_number}]"
-#         )
-#         blocks.append(f"{header}\n{c.text}")
-#     return "\n\n---\n\n".join(blocks)
-
 def format_context(chunks: list[Chunk]) -> str:
     formatted = ""
     for i, chunk in enumerate(chunks, 1):
@@ -136,12 +126,6 @@ class OpenAILLM(LLM):
         self._rewrite_model = settings.LLM_REWRITE_MODEL
         self._contextualizer_model = settings.SESSION_CONTEXTUALIZER_MODEL
 
-    # def __init__(self, settings: Settings):
-    #     from openai import AsyncOpenAI
-
-    #     self._client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-    #     self._gen_model = settings.OPENAI_GENERATION_MODEL
-    #     self._rewrite_model = settings.OPENAI_QUERY_REWRITE_MODEL
 
     async def generate(self, system_prompt: str, user_query: str) -> str:
         resp = await self._client.chat.completions.create(

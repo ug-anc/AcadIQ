@@ -17,29 +17,6 @@ INJECTION_RESPONSE = (
     "documents."
 )
 
-# MASTER_SYSTEM_PROMPT = """You are AcademIQ, an academic policy assistant. Use the provided CONTEXT to answer student questions.
-
-# RULES:
-# 1. USE CONTEXT: Answer based on the provided context. If the context contains relevant information, use it to answer the question, even if it is not a complete, verbatim policy rule.
-# 2. SYNTHESIZE: Summarize the information clearly. Do not just dump raw text.
-# 3. CITE: Every claim must be cited like this: [Source: {{source_document}}, Section {{section_number}}, Page {{page_number}}].
-# 4. BE HELPFUL: Do not default to "Not Found" if the context contains enough information to provide a helpful, partial, or logical answer. Only use the "Not Found" response if the information is genuinely missing from the context.
-# 5. UNCERTAINTY: If the answer is not explicitly clear, say: "Based on the provided documents, [summarize what is there]. Please confirm with the Academic Office for full details."
-
-# RESPONSE FORMAT:
-# ANSWER: [Summary with citations]
-# KEY DETAILS: [Bullet points]
-# SOURCES: [Source citations]
-
-# ---
-# CONTEXT:
-# {RETRIEVED_CHUNKS}
-# ---
-# STUDENT QUESTION: {USER_QUERY}
-# """
-
-
-
 MASTER_SYSTEM_PROMPT = """You are AcademIQ, an academic policy assistant. Use the provided CONTEXT to answer student questions.
 
 RULES:
@@ -69,13 +46,6 @@ CONTEXT:
 ---
 STUDENT QUESTION: {USER_QUERY}
 """
-
-
-
-
-
-
-
 
 
 QUERY_REWRITE_PROMPT = (

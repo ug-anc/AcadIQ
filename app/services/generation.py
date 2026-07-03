@@ -39,67 +39,6 @@ def validate_citations_present(text: str, minimum: int = 1) -> bool:
     return len(CITATION_RE.findall(text)) >= minimum
 
 
-# def parse_citations(
-#     text: str, chunks: list[RetrievedChunk]
-# ) -> list[SourceCitation]:
-#     """Build citation objects, attaching a short excerpt from the matching chunk."""
-#     excerpt_by_section = {
-#         c.metadata.get("section_number", ""): c.text for c in chunks
-#     }
-#     citations: list[SourceCitation] = []
-#     seen: set[tuple[str, str, int]] = set()
-#     for m in CITATION_RE.finditer(text):
-#         doc = m.group("doc").strip()
-#         section = m.group("section").strip()
-#         page = int(m.group("page"))
-#         key = (doc, section, page)
-#         if key in seen:
-#             continue
-#         seen.add(key)
-#         excerpt = excerpt_by_section.get(section, "")[:150]
-#         citations.append(
-#             SourceCitation(
-#                 document_name=doc, section=section, page_number=page, excerpt=excerpt
-#             )
-#         )
-#     return citations
-
-# def parse_citations(
-#     text: str, chunks: list[RetrievedChunk]
-# ) -> list[SourceCitation]:
-#     """Build citation objects for [1], [2] style citations."""
-#     citations: list[SourceCitation] = []
-#     seen: set[int] = set()
-
-#     # Find all matches of [1], [2], etc.
-#     for m in re.finditer(r"\[(\d+)\]", text):
-#         idx = int(m.group(1)) - 1  # Convert to 0-based index
-
-#         # Ensure the index is valid for our chunks list
-#         if idx < 0 or idx >= len(chunks) or idx in seen:
-#             continue
-
-#         seen.add(idx)
-#         chunk = chunks[idx]
-
-#         # Extract metadata directly from the chunk
-#         doc = chunk.metadata.get("source_document", "Unknown")
-#         section = chunk.metadata.get("section_number", "N/A")
-#         page = int(chunk.metadata.get("page_number", 0))
-#         excerpt = chunk.text[:150]
-#         base_url = "https://iitk.ac.in/doaa/data/UG_Manual.pdf"
-#         citations.append(
-#             SourceCitation(
-#                 document_name=doc,
-#                 section=section,
-#                 page_number=page,
-#                 excerpt=excerpt,
-#                 file_url=f"{base_url}#page={page}"
-#             )
-#         )
-#     return citations
-
-
 def parse_citations(
     text: str, chunks: list[RetrievedChunk]
 ) -> list[SourceCitation]:
