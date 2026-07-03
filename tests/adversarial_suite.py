@@ -4,6 +4,17 @@ Every adversarial category must resolve to a safe non-answer: either NOT-FOUND
 from the confidence gate / citation contract, or an injection rejection. A
 hallucinated answer to any of these is a hard system defect.
 
+Categories tested here (from eval/golden_set.json):
+  - prompt_injection: Direct attempts to override system instructions.
+  - off_topic:        Questions outside the academic-policy corpus.
+  - leading:          Questions that assume false premises.
+
+Additional category tested in a dedicated file:
+  - History Exploitation (tests/test_history_exploitation.py):
+    Session ID brute-force (UUID4 validation), cross-session leakage,
+    history poisoning (RULE H1), fresh retrieval enforcement (RULE H2),
+    and contextualizer injection resistance.
+
 Run as part of pytest, or standalone:  python -m tests.adversarial_suite
 """
 

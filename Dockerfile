@@ -19,4 +19,4 @@ EXPOSE 8000
 # In production, mount data/pdfs and run `python -m scripts.ingest` instead.
 RUN python -m scripts.load_sample_corpus || true
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

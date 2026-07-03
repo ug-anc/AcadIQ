@@ -4,10 +4,15 @@ Pipeline: retrieve -> confidence gate -> (generate | NOT-FOUND) -> citation
 enforcement -> structured response. The gate runs *before* the LLM, so when the
 top chunk is below the hard-reject threshold no generation call is made at all —
 this is the cheapest and strongest hallucination defense.
+
+Multi-turn extension: answer_query_with_history() contextualizes follow-up
+queries via the LLM contextualizer before running the standard pipeline.
+RULE H2 ensures every turn triggers fresh retrieval.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 
@@ -17,6 +22,9 @@ from app.prompts import NOT_FOUND_RESPONSE
 from app.services import confidence
 from app.services.llm import Chunk, get_llm, render_prompt
 from app.services.retrieval import RetrievedChunk, get_retrieval_engine
+from app.services.session_store import get_session_store
+
+logger = logging.getLogger(__name__)
 
 # CITATION_RE = re.compile(
 #     r"\[Source:\s*(?P<doc>.+?),\s*Section\s*(?P<section>.+?),\s*Page\s*(?P<page>\d+)\]"
@@ -138,13 +146,9 @@ def parse_citations(
     return citations
 
 
-
-
-
-
-
 def _not_found_response(
-    score: float, band: str, retrieval_ms: int, session_id: str | None
+    score: float, band: str, retrieval_ms: int, session_id: str,
+    standalone_query: str | None = None,
 ) -> QueryResponse:
     return QueryResponse(
         answer=NOT_FOUND_RESPONSE,
@@ -153,12 +157,14 @@ def _not_found_response(
         is_found=False,
         confidence_band=band,
         session_id=session_id,
+        standalone_query=standalone_query,
         retrieval_latency_ms=retrieval_ms,
         generation_latency_ms=0,
     )
 
 
-async def answer_query(query: str, session_id: str | None = None) -> QueryResponse:
+async def answer_query(query: str, session_id: str = "") -> QueryResponse:
+    """Original single-turn pipeline (backward-compatible)."""
     s = get_settings()
     engine = get_retrieval_engine()
     llm = get_llm()
@@ -221,8 +227,8 @@ async def answer_query(query: str, session_id: str | None = None) -> QueryRespon
 
     citations = parse_citations(raw, chunks)
     answer = raw.strip()
-    if decision.band == confidence.LOW_CONFIDENCE:
-        answer = LOW_CONFIDENCE_BANNER + answer
+    # if decision.band == confidence.LOW_CONFIDENCE:
+        # answer = LOW_CONFIDENCE_BANNER + answer
 
     return QueryResponse(
         answer=answer,
@@ -234,3 +240,48 @@ async def answer_query(query: str, session_id: str | None = None) -> QueryRespon
         retrieval_latency_ms=retrieval_ms,
         generation_latency_ms=generation_ms,
     )
+
+
+async def answer_query_with_history(
+    raw_query: str, session_id: str
+) -> QueryResponse:
+    """Multi-turn pipeline: contextualize → retrieve → generate.
+
+    1. Fetch conversation history from the session store.
+    2. Run the contextualizer to produce a standalone query.
+    3. Record the user turn in the session store.
+    4. Run the standard answer pipeline with the standalone query.
+    5. Record the assistant turn in the session store.
+    6. Return the response with standalone_query for observability.
+
+    RULE H2: Fresh retrieval happens on every turn — the standalone_query
+    always goes through the full retrieve → gate → generate pipeline.
+    """
+    s = get_settings()
+    store = get_session_store()
+    llm = get_llm()
+
+    # 1. Fetch history (capped to contextualizer window)
+    history = store.get_history(
+        session_id, max_turns=s.SESSION_MAX_HISTORY_TURNS
+    )
+
+    # 2. Contextualize (RULE H1: topics only, no claimed facts)
+    standalone_query = await llm.contextualize_query(raw_query, history)
+    logger.info(
+        "Session %s | raw='%s' | standalone='%s'",
+        session_id[:8], raw_query[:60], standalone_query[:60],
+    )
+
+    # 3. Record user turn
+    store.add_turn(session_id, role="user", content=raw_query)
+
+    # 4. Run the standard pipeline with the standalone query
+    #    RULE H2: every turn does fresh retrieval
+    response = await answer_query(standalone_query, session_id)
+    response.standalone_query = standalone_query
+
+    # 5. Record assistant turn
+    store.add_turn(session_id, role="assistant", content=response.answer)
+
+    return response

@@ -14,6 +14,7 @@ from slowapi.errors import RateLimitExceeded
 from app import __version__
 from app.config import get_settings
 from app.routers import query
+from app.routers import session
 from app.security import limiter
 from app.services.retrieval import initialize_retrieval_engine
 
@@ -48,11 +49,12 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PATCH"],
     allow_headers=["Content-Type", "X-Admin-Key"],
 )
 
 app.include_router(query.router, prefix="/api/v1")
+app.include_router(session.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(health.router)
 

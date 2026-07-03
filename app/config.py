@@ -32,8 +32,8 @@ class Settings(BaseSettings):
     LLM_PROVIDER: Literal["openai", "local"] = "openai"
     RERANKER: Literal["cohere", "identity"] = "cohere"
 
-    LLM_GEN_MODEL: str = "llama-3.3-70b-versatile"
-    LLM_REWRITE_MODEL: str = "llama-3.3-70b-versatile"
+    LLM_GEN_MODEL: str = "llama-3.1-8b-instant"
+    LLM_REWRITE_MODEL: str = "llama-3.1-8b-instant"
 
 
     # ---- LLM / Embeddings -------------------------------------------------
@@ -83,6 +83,10 @@ class Settings(BaseSettings):
     # ---- Document corpus --------------------------------------------------
     PDF_DIR: str = "data/pdfs"
     COLLEGE_NAME: str = "IIT KANPUR"
+
+    # ---- Session / multi-turn ---------------------------------------------
+    SESSION_MAX_HISTORY_TURNS: int = 10  # max turns fed to the contextualizer
+    SESSION_CONTEXTUALIZER_MODEL: str = "llama-3.1-8b-instant"
 
     # ----------------------------------------------------------------------
     def resolve_providers(self) -> None:

@@ -1,4 +1,4 @@
-"""LLM providers for generation and query rewriting.
+"""LLM providers for generation, query rewriting, and multi-turn contextualization.
 
 OpenAI provider follows the PRD. The local provider is a faithful *demo*: it does
 not invent anything — it answers extractively from the single most relevant chunk
@@ -8,16 +8,21 @@ zero-key demo honest about the zero-hallucination contract.
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from app.config import Settings, get_settings
 from app.prompts import (
+    CONTEXTUALIZER_SYSTEM_PROMPT,
+    CONTEXTUALIZER_USER_TEMPLATE,
     INJECTION_RESPONSE,
     MASTER_SYSTEM_PROMPT,
     NOT_FOUND_RESPONSE,
     QUERY_REWRITE_PROMPT,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -56,6 +61,14 @@ class LLM(ABC):
     async def rewrite_query(self, query: str) -> str:
         ...
 
+    @abstractmethod
+    async def contextualize_query(
+        self, raw_query: str, history: list[dict]
+    ) -> str:
+        """Rewrite *raw_query* into a standalone question using conversation
+        history.  If history is empty, return raw_query unchanged."""
+        ...
+
 
 class LocalExtractiveLLM(LLM):
     """Demo generator. Echoes the grounding chunk verbatim with a citation.
@@ -92,6 +105,22 @@ class LocalExtractiveLLM(LLM):
     async def rewrite_query(self, query: str) -> str:
         return query  # local mode skips rewriting
 
+    async def contextualize_query(
+        self, raw_query: str, history: list[dict]
+    ) -> str:
+        """Demo mode: return raw_query unchanged.
+
+        This is by-design — the local extractive LLM has no generative
+        capability for query rewriting.  Multi-turn contextualization is
+        a no-op in demo mode; RULE H2 (fresh retrieval) still runs because
+        the returned query always goes through the retrieval pipeline.
+        """
+        logger.info(
+            "contextualize_query: demo mode — returning raw_query unchanged "
+            "(session_id contextualization is a no-op for LocalExtractiveLLM)"
+        )
+        return raw_query
+
 
 class OpenAILLM(LLM):
     def __init__(self, settings: Settings):
@@ -105,6 +134,7 @@ class OpenAILLM(LLM):
         # Choose a fast, free model supported by Groq
         self._gen_model = settings.LLM_GEN_MODEL
         self._rewrite_model = settings.LLM_REWRITE_MODEL
+        self._contextualizer_model = settings.SESSION_CONTEXTUALIZER_MODEL
 
     # def __init__(self, settings: Settings):
     #     from openai import AsyncOpenAI
@@ -133,6 +163,54 @@ class OpenAILLM(LLM):
             ],
         )
         return (resp.choices[0].message.content or query).strip()
+
+    async def contextualize_query(
+        self, raw_query: str, history: list[dict]
+    ) -> str:
+        """Use the contextualizer LLM to rewrite a follow-up into a standalone
+        query.  Implements Fix #2: any exception/timeout falls back to
+        raw_query so the turn is never blocked.  RULE H2 guarantees fresh
+        retrieval regardless of contextualizer outcome.
+        """
+        if not history:
+            return raw_query
+
+        # Build the history block for the prompt
+        history_lines: list[str] = []
+        for turn in history:
+            role_label = "Student" if turn["role"] == "user" else "Assistant"
+            history_lines.append(f"{role_label}: {turn['content']}")
+        history_text = "\n".join(history_lines)
+
+        user_msg = CONTEXTUALIZER_USER_TEMPLATE.format(
+            history=history_text, raw_query=raw_query
+        )
+
+        try:
+            resp = await self._client.chat.completions.create(
+                model=self._contextualizer_model,
+                temperature=0.0,
+                messages=[
+                    {"role": "system", "content": CONTEXTUALIZER_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_msg},
+                ],
+            )
+            standalone = (resp.choices[0].message.content or raw_query).strip()
+            if not standalone:
+                standalone = raw_query
+            logger.info(
+                "Contextualizer: '%s' → '%s'", raw_query[:80], standalone[:80]
+            )
+            return standalone
+        except Exception:
+            # Fix #2: Never block the turn — fall back to raw_query.
+            # RULE H2 still runs because the caller always does fresh retrieval.
+            logger.warning(
+                "Contextualizer call failed — falling back to raw_query: '%s'",
+                raw_query[:80],
+                exc_info=True,
+            )
+            return raw_query
 
 
 def _extract_context_section(rendered_prompt: str) -> str:

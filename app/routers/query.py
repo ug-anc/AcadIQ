@@ -13,7 +13,7 @@ from app.prompts import INJECTION_RESPONSE
 from app.security import limiter
 from app.services.cache import get_cache
 from app.services.feedback import record_feedback
-from app.services.generation import answer_query
+from app.services.generation import answer_query_with_history
 
 router = APIRouter(tags=["query"])
 
@@ -33,16 +33,19 @@ async def query(request: Request, payload: QueryRequest) -> QueryResponse:
             session_id=payload.session_id,
         )
 
+    # Cache is keyed by (session_id, raw_query) so the same literal query in
+    # different session contexts gets independent results.
     cache = get_cache()
-    cached = cache.get(payload.query)
+    cache_key = f"{payload.session_id}:{payload.query}"
+    cached = cache.get(cache_key)
     if cached is not None:
         resp = QueryResponse(**cached)
         resp.cached = True
         resp.session_id = payload.session_id
         return resp
 
-    response = await answer_query(payload.query, payload.session_id)
-    cache.set(payload.query, response.model_dump())
+    response = await answer_query_with_history(payload.query, payload.session_id)
+    cache.set(cache_key, response.model_dump())
     return response
 
 

@@ -25,9 +25,25 @@ def looks_like_injection(text: str) -> bool:
     return any(p.search(text) for p in _COMPILED)
 
 
+# -- UUID4 session_id validation (Fix #1 & #3) --------------------------------
+# Canonical lowercase UUID4 with hyphens: 8-4-4-4-12 hex digits.
+_UUID4_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def is_valid_session_id(value: str) -> bool:
+    """Check that a session_id is a valid UUID4 string."""
+    return bool(_UUID4_RE.match(value))
+
+
 class QueryRequest(BaseModel):
     query: str = Field(..., min_length=3, max_length=500)
-    session_id: Optional[str] = None
+    session_id: str = Field(
+        ...,
+        description="Client-generated UUID4 session identifier",
+    )
 
     @field_validator("query")
     @classmethod
@@ -35,6 +51,18 @@ class QueryRequest(BaseModel):
         if looks_like_injection(v):
             raise ValueError("Query contains disallowed content")
         return v.strip()
+
+    @field_validator("session_id")
+    @classmethod
+    def validate_session_id(cls, v: str) -> str:
+        """Fix #3: Validate session_id is UUID4 format — same pattern as
+        the sanitize_query validator."""
+        if not is_valid_session_id(v):
+            raise ValueError(
+                "session_id must be a valid UUID4 "
+                "(e.g. '550e8400-e29b-41d4-a716-446655440000')"
+            )
+        return v
 
 
 class SourceCitation(BaseModel):
@@ -52,7 +80,8 @@ class QueryResponse(BaseModel):
     is_found: bool
     confidence_band: str  # "found" | "low_confidence" | "not_found"
     cached: bool = False
-    session_id: Optional[str] = None
+    session_id: str = ""
+    standalone_query: Optional[str] = None  # contextualized query for debugging
     retrieval_latency_ms: int = 0
     generation_latency_ms: int = 0
 
@@ -72,3 +101,27 @@ class HealthResponse(BaseModel):
     llm_provider: str
     reranker: str
     chunk_count: int
+
+
+# -- Session models ----------------------------------------------------------
+
+class SessionSummary(BaseModel):
+    session_id: str
+    title: str
+    status: str
+    created_at: str
+    updated_at: str
+    turn_count: int
+
+
+class SessionDetail(BaseModel):
+    session_id: str
+    title: str
+    status: str
+    created_at: str
+    updated_at: str
+    turns: list[dict]
+
+
+class SessionListResponse(BaseModel):
+    sessions: list[SessionSummary]

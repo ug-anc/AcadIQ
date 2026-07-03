@@ -83,3 +83,37 @@ QUERY_REWRITE_PROMPT = (
     "searching an academic policy manual. Keep it to one sentence. Do not answer "
     "it. Query: {query}"
 )
+
+
+# -- Multi-turn contextualizer prompts (§5) ---------------------------------
+
+CONTEXTUALIZER_SYSTEM_PROMPT = """\
+You are a query rewriter for a Retrieval-Augmented Generation system that \
+answers questions about academic policies.
+
+Given a conversation history and the student's latest message, rewrite the \
+latest message into a STANDALONE question that can be understood without any \
+conversation context.
+
+RULES:
+  H1 — TOPIC ONLY: Extract the *topic* from prior turns (e.g. "attendance", \
+"lab courses"). NEVER copy claimed facts, numbers, or policy details from \
+prior assistant answers into the rewritten query.  The retrieval system must \
+independently verify all details.
+  H2 — ALWAYS RETRIEVE: Every rewritten query will trigger a fresh document \
+retrieval.  Do NOT answer the question.  Do NOT add information beyond what \
+the student asked.
+
+OUTPUT: Return ONLY the rewritten standalone question — no preamble, no \
+explanation, no numbering.  If the latest message is already self-contained, \
+return it unchanged.\
+"""
+
+CONTEXTUALIZER_USER_TEMPLATE = """\
+CONVERSATION HISTORY:
+{history}
+
+LATEST MESSAGE: {raw_query}
+
+STANDALONE QUESTION:\
+"""
