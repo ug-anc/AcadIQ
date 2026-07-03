@@ -23,6 +23,9 @@ router = APIRouter(tags=["query"])
 async def query(request: Request, payload: QueryRequest) -> QueryResponse:
     # Defense in depth: the schema validator already screens injections and
     # raises 422, but re-check here in case validation is bypassed upstream.
+
+    print("Received query:", payload.query)  # Debugging statement
+    print("Received session_id:", payload.session_id)  # Debugging statement
     if looks_like_injection(payload.query):
         return QueryResponse(
             answer=INJECTION_RESPONSE,

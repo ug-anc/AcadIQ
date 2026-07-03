@@ -132,7 +132,7 @@
 <script>
   const API = "/api/v1/query";
   const FEEDBACK = "/api/v1/feedback";
-  const SESSION = "web-" + Math.random().toString(36).slice(2, 10);
+  const SESSION = crypto.randomUUID();
   const thread = document.getElementById("thread");
   const form = document.getElementById("form");
   const input = document.getElementById("q");
@@ -204,7 +204,10 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: q, session_id: SESSION }),
       });
+        console.log("Request sent to API with query:", q, SESSION);  // Debugging statement
+
       if (res.status === 422) {
+        console.log(res); // debugging TODO: remove DURING PROD
         addBot({ answer: "That query was rejected by the input guard.", confidence_band: "not_found", citations: [], confidence_score: 0 }, q);
       } else {
         addBot(await res.json(), q);
