@@ -35,4 +35,8 @@ transformers
 tokenizers
 
 sentence_transformers
+
+psycopg[binary]
+pgvector
+
 npm
