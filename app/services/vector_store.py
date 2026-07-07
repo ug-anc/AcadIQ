@@ -1,16 +1,12 @@
-"""Vector store wrapper around an embedded, persistent ChromaDB collection.
-
-DR-05 decision: embedded `PersistentClient` (no server, no Docker for dev). A
-docker-compose HTTP variant ships for team use but the prototype defaults to the
-zero-infra path. Cosine space is configured to match the confidence gate.
-"""
+"""Vector store wrapper around a deployed Neon Tech PostgreSQL database using pgvector."""
 
 from __future__ import annotations
 
+import json
 from typing import Any
-
-import chromadb
-from chromadb.config import Settings as ChromaSettings
+import psycopg
+from psycopg.rows import dict_row
+from pgvector.psycopg import register_vector
 
 from app.config import get_settings
 
@@ -24,19 +20,21 @@ REQUIRED_METADATA_FIELDS = {
     "chunk_id",
 }
 
-
 class VectorStore:
     def __init__(self) -> None:
         s = get_settings()
-        self._client = chromadb.PersistentClient(
-            path=s.CHROMA_PERSIST_DIR,
-            settings=ChromaSettings(anonymized_telemetry=False, allow_reset=True),
-        )
-        self._collection = self._client.get_or_create_collection(
-            name=s.CHROMA_COLLECTION,
-            metadata={"hnsw:space": "cosine"},
-            embedding_function=None,  # embeddings are computed externally
-        )
+        # Connect to your remote Neon instance
+        self.conn_string = s.DATABASE_URL
+        
+        # Self-initialize vector extension configuration for the client connection
+        with psycopg.connect(self.conn_string) as conn:
+            register_vector(conn)
+
+    def _get_connection(self):
+        """Returns a standard connection synced with pgvector registry."""
+        conn = psycopg.connect(self.conn_string, row_factory=dict_row)
+        register_vector(conn)
+        return conn
 
     # ---- writes -----------------------------------------------------------
     def upsert(
@@ -49,75 +47,99 @@ class VectorStore:
         missing = REQUIRED_METADATA_FIELDS - set(metadata.keys())
         if missing:
             raise ValueError(f"Missing metadata fields: {sorted(missing)}")
-        self._collection.upsert(
-            ids=[chunk_id],
-            embeddings=[embedding],
-            documents=[text],
-            metadatas=[metadata],
-        )
+            
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO document_chunks (chunk_id, embedding, text, metadata)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (chunk_id) DO UPDATE 
+                    SET embedding = EXCLUDED.embedding, text = EXCLUDED.text, metadata = EXCLUDED.metadata;
+                    """,
+                    (chunk_id, embedding, text, json.dumps(metadata)),
+                )
+            conn.commit()
 
     def upsert_batch(self, records: list[dict[str, Any]]) -> None:
         if not records:
             return
+            
         for r in records:
             missing = REQUIRED_METADATA_FIELDS - set(r["metadata"].keys())
             if missing:
                 raise ValueError(f"Missing metadata fields: {sorted(missing)}")
-        self._collection.upsert(
-            ids=[r["chunk_id"] for r in records],
-            embeddings=[r["embedding"] for r in records],
-            documents=[r["text"] for r in records],
-            metadatas=[r["metadata"] for r in records],
-        )
+
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                # Process structural updates cleanly using a batch statement loop
+                for r in records:
+                    cur.execute(
+                        """
+                        INSERT INTO document_chunks (chunk_id, embedding, text, metadata)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (chunk_id) DO UPDATE 
+                        SET embedding = EXCLUDED.embedding, text = EXCLUDED.text, metadata = EXCLUDED.metadata;
+                        """,
+                        (r["chunk_id"], r["embedding"], r["text"], json.dumps(r["metadata"])),
+                    )
+            conn.commit()
 
     # ---- reads ------------------------------------------------------------
     def query(self, query_embedding: list[float], n_results: int) -> list[dict[str, Any]]:
-        res = self._collection.query(
-            query_embeddings=[query_embedding],
-            n_results=n_results,
-            include=["documents", "metadatas", "distances"],
-        )
         out: list[dict[str, Any]] = []
-        if not res["ids"] or not res["ids"][0]:
-            return out
-        for i, chunk_id in enumerate(res["ids"][0]):
-            distance = res["distances"][0][i]
-            out.append(
-                {
-                    "chunk_id": chunk_id,
-                    "text": res["documents"][0][i],
-                    "metadata": res["metadatas"][0][i],
-                    # cosine distance -> similarity in [-1, 1], clamped to [0, 1]
-                    "cosine_similarity": max(0.0, 1.0 - distance),
-                }
-            )
+        
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                # Postgres pgvector uses <=> operator for Cosine Distance. 
+                # Cosine Similarity = 1.0 - Cosine Distance
+                cur.execute(
+                    """
+                    SELECT chunk_id, text, metadata, (1.0 - (embedding <=> %s::vector)) AS cosine_similarity
+                    FROM document_chunks
+                    ORDER BY embedding <=> %s::vector
+                    LIMIT %s;
+                    """,
+                    (query_embedding, query_embedding, n_results),
+                )
+                rows = cur.fetchall()
+                
+                for row in rows:
+                    out.append({
+                        "chunk_id": row["chunk_id"],
+                        "text": row["text"],
+                        "metadata": row["metadata"] if isinstance(row["metadata"], dict) else json.loads(row["metadata"]),
+                        "cosine_similarity": max(0.0, float(row["cosine_similarity"])),
+                    })
         return out
 
     def all_documents(self) -> list[dict[str, Any]]:
         """Return every chunk (text + metadata) — used to build the BM25 index."""
-        res = self._collection.get(include=["documents", "metadatas"])
         out: list[dict[str, Any]] = []
-        for i, chunk_id in enumerate(res["ids"]):
-            out.append(
-                {
-                    "chunk_id": chunk_id,
-                    "text": res["documents"][i],
-                    "metadata": res["metadatas"][i],
-                }
-            )
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT chunk_id, text, metadata FROM document_chunks;")
+                rows = cur.fetchall()
+                for row in rows:
+                    out.append({
+                        "chunk_id": row["chunk_id"],
+                        "text": row["text"],
+                        "metadata": row["metadata"] if isinstance(row["metadata"], dict) else json.loads(row["metadata"]),
+                    })
         return out
 
     def count(self) -> int:
-        return self._collection.count()
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM document_chunks;")
+                res = cur.fetchone()
+                return res["count"] if res else 0
 
     def reset(self) -> None:
-        s = get_settings()
-        self._client.delete_collection(s.CHROMA_COLLECTION)
-        self._collection = self._client.get_or_create_collection(
-            name=s.CHROMA_COLLECTION,
-            metadata={"hnsw:space": "cosine"},
-            embedding_function=None,
-        )
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("TRUNCATE TABLE document_chunks;")
+            conn.commit()
 
 
 _STORE: VectorStore | None = None

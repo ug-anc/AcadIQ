@@ -15,9 +15,13 @@ from functools import lru_cache
 from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
+
 
 
 class Settings(BaseSettings):
+    from dotenv import load_dotenv
+    load_dotenv()  
     model_config = SettingsConfigDict(
         env_file=".env", case_sensitive=True, extra="ignore"
     )
@@ -49,8 +53,8 @@ class Settings(BaseSettings):
 
     # ---- Vector store -----------------------------------------------------
     # Prototype uses an embedded persistent Chroma client (no server needed).
-    CHROMA_PERSIST_DIR: str = "storage/chroma"
-    CHROMA_COLLECTION: str = "academiq_chunks"
+    # CHROMA_PERSIST_DIR: str = "storage/chroma"
+    # CHROMA_COLLECTION: str = "academiq_chunks"
 
     # ---- Retrieval tuning -------------------------------------------------
     RETRIEVAL_TOP_K_DENSE: int = 20
@@ -87,6 +91,9 @@ class Settings(BaseSettings):
     # ---- Session / multi-turn ---------------------------------------------
     SESSION_MAX_HISTORY_TURNS: int = 10  # max turns fed to the contextualizer
     SESSION_CONTEXTUALIZER_MODEL: str = "llama-3.1-8b-instant"
+
+    # ---- Database ---------------------------------------------------------
+    DATABASE_URL: str = os.getenv("DATABASE_URL")
 
     # ----------------------------------------------------------------------
     def resolve_providers(self) -> None:
