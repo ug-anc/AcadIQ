@@ -8,13 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir --upgrade pip
-
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
 EXPOSE 8000
+
+# Ingest the sample corpus at build time so the image is queryable out of the box.
+# In production, mount data/pdfs and run `python -m scripts.ingest` instead.
+RUN python -m scripts.load_sample_corpus || true
 
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
