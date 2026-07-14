@@ -4,6 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Ask IITK — Academic Policy Assistant</title>
+
+<!-- 1. Include Marked.js for compiling Markdown into HTML elements safely -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
 <style>
   :root {
     --paper: #faf8f3;
@@ -57,11 +61,63 @@
   .band.low_confidence { background: var(--amber-soft); color: var(--amber); }
   .band.not_found { background: var(--stop-soft); color: var(--stop); }
   .band .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  
+  /* 2. Markdown Specific Styling changes */
   .answer {
     font-family: Georgia, "Times New Roman", serif;
-    font-size: 17px; white-space: pre-wrap;
+    font-size: 17px; 
+    /* REMOVED white-space: pre-wrap; to prevent rendering double-spacing on list items and headers */
     border-left: 3px solid var(--line); padding: 2px 0 2px 16px;
   }
+
+  /* Custom inner styling for markdown parsed targets */
+  .answer p {
+    margin: 0 0 12px 0;
+  }
+  .answer p:last-child {
+    margin-bottom: 0;
+  }
+  .answer h1, .answer h2, .answer h3, .answer h4 {
+    color: var(--navy);
+    margin: 1.2em 0 0.4em 0;
+  }
+  .answer h1:first-child, .answer h2:first-child, .answer h3:first-child {
+    margin-top: 0;
+  }
+  .answer ul, .answer ol {
+    margin: 0 0 12px 0;
+    padding-left: 20px;
+  }
+  .answer li {
+    margin-bottom: 4px;
+  }
+  .answer blockquote {
+    border-left: 3px solid var(--amber);
+    background: var(--amber-soft);
+    margin: 1em 0;
+    padding: 8px 12px;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    color: var(--ink);
+  }
+  .answer blockquote p {
+    margin: 0;
+  }
+  .answer table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+    font-size: 15px;
+  }
+  .answer th, .answer td {
+    border: 1px solid var(--line);
+    padding: 8px 10px;
+    text-align: left;
+  }
+  .answer th {
+    background: var(--navy-soft);
+    font-weight: bold;
+  }
+
   .meta { color: var(--muted); font-size: 12px; margin-top: 10px; }
   details.sources {
     margin-top: 12px; border: 1px solid var(--line); border-radius: var(--radius);
@@ -159,7 +215,11 @@
     const el = document.createElement("div");
     el.className = "turn bot";
     let html = `<div class="band ${data.confidence_band}"><span class="dot"></span>${bandLabel(data.confidence_band)}</div>`;
-    html += `<div class="answer">${esc(data.answer)}</div>`;
+    
+    // 3. Render raw Markdown directly into the DOM container using marked.parse()
+    const parsedAnswerHtml = marked.parse(data.answer);
+    html += `<div class="answer">${parsedAnswerHtml}</div>`;
+    
     if (data.citations && data.citations.length) {
       html += `<details class="sources"><summary>${data.citations.length} source${data.citations.length > 1 ? "s" : ""} referenced</summary>`;
       for (const c of data.citations) {
@@ -207,7 +267,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: q, session_id: SESSION }),
       });
-        console.log("Request sent to API with query:", q, SESSION);  // Debugging statement
+      console.log("Request sent to API with query:", q, SESSION);  // Debugging statement
 
       if (res.status === 422) {
         console.log(res); // debugging TODO: remove DURING PROD

@@ -20,6 +20,7 @@ from app.prompts import (
     MASTER_SYSTEM_PROMPT,
     NOT_FOUND_RESPONSE,
     QUERY_REWRITE_PROMPT,
+    QUERY_TRANSLATION_PROMPT,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,10 @@ class LLM(ABC):
 
     @abstractmethod
     async def rewrite_query(self, query: str) -> str:
+        ...
+
+    @abstractmethod
+    async def rewrite_query_to_search_terms(self, query: str) -> list[str]:
         ...
 
     @abstractmethod
@@ -94,6 +99,9 @@ class LocalExtractiveLLM(LLM):
 
     async def rewrite_query(self, query: str) -> str:
         return query  # local mode skips rewriting
+
+    async def rewrite_query_to_search_terms(self, query: str) -> list[str]:
+        return [query]
 
     async def contextualize_query(
         self, raw_query: str, history: list[dict]
@@ -148,6 +156,31 @@ class OpenAILLM(LLM):
         )
         return (resp.choices[0].message.content or query).strip()
 
+    async def rewrite_query_to_search_terms(self, query: str) -> list[str]:
+        import re
+        try:
+            resp = await self._client.chat.completions.create(
+                model=self._rewrite_model,
+                temperature=0.0,
+                messages=[
+                    {"role": "user", "content": QUERY_TRANSLATION_PROMPT.format(query=query)}
+                ],
+            )
+            raw = (resp.choices[0].message.content or query).strip()
+            lines = [line.strip() for line in raw.split("\n") if line.strip()]
+            cleaned = []
+            for line in lines:
+                l = re.sub(r"^[\s\-\*\d\.\:\)\(]+", "", line).strip()
+                l = l.strip('"\'')
+                if l:
+                    cleaned.append(l)
+            if not cleaned:
+                return [query]
+            return cleaned[:3]
+        except Exception as e:
+            logger.error(f"Failed to rewrite query to search terms: {e}", exc_info=True)
+            return [query]
+
     async def contextualize_query(
         self, raw_query: str, history: list[dict]
     ) -> str:
@@ -198,9 +231,12 @@ class OpenAILLM(LLM):
 
 
 def _extract_context_section(rendered_prompt: str) -> str:
-    marker = "CONTEXT — RETRIEVED DOCUMENT CHUNKS:"
+    marker = "RETRIEVED MANUAL CHUNKS (FACTUAL DOCUMENTATION - TRUTH SOURCE):"
     if marker not in rendered_prompt:
-        return ""
+        legacy_marker = "CONTEXT — RETRIEVED DOCUMENT CHUNKS:"
+        if legacy_marker not in rendered_prompt:
+            return ""
+        marker = legacy_marker
     after = rendered_prompt.split(marker, 1)[1]
     return after.split("\n---\nSTUDENT QUESTION:", 1)[0].strip("-\n ")
 
@@ -214,9 +250,26 @@ def _collect_sources(context: str) -> list[str]:
     return sources
 
 
-def render_prompt(college_name: str, chunks: list[Chunk], user_query: str) -> str:
+def format_history(history: list[dict]) -> str:
+    if not history:
+        return "No prior conversation history."
+    formatted = []
+    for turn in history:
+        role = "Student" if turn["role"] == "user" else "Assistant"
+        formatted.append(f"{role}: {turn['content']}")
+    return "\n".join(formatted)
+
+
+def render_prompt(
+    college_name: str,
+    chunks: list[Chunk],
+    user_query: str,
+    history: list[dict] | None = None,
+) -> str:
+    history_str = format_history(history or [])
     return MASTER_SYSTEM_PROMPT.format(
         COLLEGE_NAME=college_name,
+        CONVERSATION_HISTORY=history_str,
         RETRIEVED_CHUNKS=format_context(chunks),
         USER_QUERY=user_query,
     )

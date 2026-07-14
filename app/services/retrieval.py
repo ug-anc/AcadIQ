@@ -8,6 +8,7 @@ rescues keyword-heavy short queries that dense search alone would miss.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any
@@ -18,6 +19,8 @@ from app.config import get_settings
 from app.services.embedder import get_embedder
 from app.services.reranker import get_reranker
 from app.services.vector_store import get_vector_store
+
+logger = logging.getLogger(__name__)
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
@@ -55,43 +58,64 @@ class RetrievalEngine:
     def ready(self) -> bool:
         return self._ready
 
-    async def retrieve(self, query: str) -> list[RetrievedChunk]:
+    async def retrieve(
+        self, query_or_queries: str | list[str], original_query: str | None = None
+    ) -> list[RetrievedChunk]:
         s = get_settings()
         if not self._ready:
             self.build_bm25()
         if not self._corpus:
             return []
 
-        # 1. dense
-        query_vec = (await get_embedder().embed([query]))[0]
-        dense = get_vector_store().query(query_vec, s.RETRIEVAL_TOP_K_DENSE)
+        # Ensure queries is a list of strings
+        queries = [query_or_queries] if isinstance(query_or_queries, str) else query_or_queries
+        orig_query = original_query or (query_or_queries if isinstance(query_or_queries, str) else queries[0])
 
-        # 2. sparse
-        sparse: list[dict[str, Any]] = []
-        if self._bm25 is not None:
-            scores = self._bm25.get_scores(_tokenize(query))
-            ranked = sorted(
-                range(len(scores)), key=lambda i: scores[i], reverse=True
-            )[: s.RETRIEVAL_TOP_K_DENSE]
-            sparse = [
-                {
-                    "chunk_id": self._corpus[i]["chunk_id"],
-                    "text": self._corpus[i]["text"],
-                    "metadata": self._corpus[i]["metadata"],
-                    "cosine_similarity": 0.0,
-                }
-                for i in ranked
-                if scores[i] > 0
-            ]
+        dense_results_list = []
+        sparse_results_list = []
 
-        # 3. reciprocal rank fusion
-        fused = reciprocal_rank_fusion(dense, sparse)[: s.RETRIEVAL_TOP_K_DENSE]
+        # Run retrieval for each query term/statement
+        for q in queries:
+            # 1. dense retrieval for this term
+            try:
+                query_vec = (await get_embedder().embed([q]))[0]
+                dense = get_vector_store().query(query_vec, s.RETRIEVAL_TOP_K_DENSE)
+                dense_results_list.append(dense)
+            except Exception as e:
+                logger.error(f"Dense retrieval error for '{q}': {e}", exc_info=True)
+                dense_results_list.append([])
+
+            # 2. sparse retrieval for this term
+            sparse: list[dict[str, Any]] = []
+            if self._bm25 is not None:
+                try:
+                    scores = self._bm25.get_scores(_tokenize(q))
+                    ranked = sorted(
+                        range(len(scores)), key=lambda i: scores[i], reverse=True
+                    )[: s.RETRIEVAL_TOP_K_DENSE]
+                    sparse = [
+                        {
+                            "chunk_id": self._corpus[i]["chunk_id"],
+                            "text": self._corpus[i]["text"],
+                            "metadata": self._corpus[i]["metadata"],
+                            "cosine_similarity": 0.0,
+                        }
+                        for i in ranked
+                        if scores[i] > 0
+                    ]
+                except Exception as e:
+                    logger.error(f"Sparse retrieval error for '{q}': {e}", exc_info=True)
+                sparse_results_list.append(sparse)
+
+        # 3. reciprocal rank fusion of all sources
+        all_sources = dense_results_list + sparse_results_list
+        fused = reciprocal_rank_fusion(*all_sources)[: s.RETRIEVAL_TOP_K_DENSE]
         if not fused:
             return []
 
-        # 4. rerank -> final top-k with relevance scores
+        # 4. rerank -> final top-k with relevance scores against the original query
         reranked = await get_reranker().rerank(
-            query=query,
+            query=orig_query,
             documents=[c["text"] for c in fused],
             top_n=s.RETRIEVAL_TOP_K_FINAL,
         )
@@ -111,10 +135,10 @@ class RetrievalEngine:
 
 
 def reciprocal_rank_fusion(
-    dense: list[dict[str, Any]], sparse: list[dict[str, Any]], k: int = 60
+    *sources: list[dict[str, Any]], k: int = 60
 ) -> list[dict[str, Any]]:
     scores: dict[str, dict[str, Any]] = {}
-    for source in (dense, sparse):
+    for source in sources:
         for rank, result in enumerate(source):
             cid = result["chunk_id"]
             entry = scores.setdefault(cid, {"score": 0.0, "data": result})

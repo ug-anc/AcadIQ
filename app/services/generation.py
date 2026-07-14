@@ -102,22 +102,26 @@ def _not_found_response(
     )
 
 
-async def answer_query(query: str, session_id: str = "") -> QueryResponse:
+async def answer_query(
+    query: str, session_id: str = "", history: list[dict] | None = None
+) -> QueryResponse:
     """Original single-turn pipeline (backward-compatible)."""
     s = get_settings()
     engine = get_retrieval_engine()
     llm = get_llm()
 
-    # Optional query rewrite for short, colloquial queries (DR-07).
-    search_query = query
-    if s.ENABLE_QUERY_REWRITE and len(query.split()) <= 6:
+    # Query Rewriting Step (Prior to Vector Search)
+    search_queries = [query]
+    if s.ENABLE_QUERY_REWRITE:
         try:
-            search_query = await llm.rewrite_query(query)
-        except Exception:
-            search_query = query  # never let rewrite failure break the request
+            search_queries = await llm.rewrite_query_to_search_terms(query)
+            logger.info("Rewrote query '%s' to search terms: %s", query, search_queries)
+        except Exception as e:
+            logger.error(f"Error in query rewrite step: {e}", exc_info=True)
+            search_queries = [query]
 
     t0 = time.perf_counter()
-    chunks = await engine.retrieve(search_query)
+    chunks = await engine.retrieve(search_queries, original_query=query)
     retrieval_ms = int((time.perf_counter() - t0) * 1000)
 
     if not chunks:
@@ -139,16 +143,17 @@ async def answer_query(query: str, session_id: str = "") -> QueryResponse:
         )
         for c in chunks
     ]
-    rendered = render_prompt(s.COLLEGE_NAME, prompt_chunks, query)
+    rendered = render_prompt(s.COLLEGE_NAME, prompt_chunks, query, history)
 
     t1 = time.perf_counter()
     raw = await llm.generate(rendered, query)
     generation_ms = int((time.perf_counter() - t1) * 1000)
 
     # If the model declined (RULE 3 NOT-FOUND text), surface it as not-found.
-    if raw.strip().startswith("I could not find a verified answer"):
+    cleaned_raw = raw.strip()
+    if cleaned_raw.startswith("I could not find a verified answer") or "I could not find a verified answer" in cleaned_raw:
         return QueryResponse(
-            answer=raw.strip(),
+            answer=cleaned_raw,
             citations=[],
             confidence_score=round(decision.score, 4),
             is_found=False,
@@ -217,10 +222,11 @@ async def answer_query_with_history(
 
     # 4. Run the standard pipeline with the standalone query
     #    RULE H2: every turn does fresh retrieval
-    response = await answer_query(standalone_query, session_id)
+    response = await answer_query(standalone_query, session_id, history=history)
     response.standalone_query = standalone_query
 
     # 5. Record assistant turn
     store.add_turn(session_id, role="assistant", content=response.answer)
 
     return response
+
