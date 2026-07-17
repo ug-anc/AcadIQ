@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 
 /* ─── API endpoints ─── */
 const API_QUERY = "/api/v1/query";
@@ -68,38 +69,16 @@ function newSessionId(): string {
 /* ─── Components ─── */
 
 function BandPill({ band }: { band: ConfidenceBand }) {
-  const colors: Record<ConfidenceBand, { bg: string; fg: string }> = {
-    found: { bg: "var(--navy-soft)", fg: "var(--navy)" },
-    low_confidence: { bg: "var(--amber-soft)", fg: "var(--amber)" },
-    not_found: { bg: "var(--stop-soft)", fg: "var(--stop)" },
+  const colors: Record<ConfidenceBand, string> = {
+    found: "bg-[var(--navy-soft)] text-[var(--navy)]",
+    low_confidence: "bg-[var(--amber-soft)] text-[var(--amber)]",
+    not_found: "bg-[var(--stop-soft)] text-[var(--stop)]",
   };
-  const c = colors[band];
   return (
     <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 7,
-        fontSize: 12,
-        fontWeight: 600,
-        textTransform: "uppercase",
-        letterSpacing: "0.04em",
-        padding: "4px 10px",
-        borderRadius: 999,
-        marginBottom: 10,
-        background: c.bg,
-        color: c.fg,
-      }}
+      className={`inline-flex items-center gap-[7px] text-xs font-semibold uppercase tracking-[0.04em] px-2.5 py-1 rounded-full mb-2.5 ${colors[band]}`}
     >
-      <span
-        style={{
-          width: 7,
-          height: 7,
-          borderRadius: "50%",
-          background: "currentColor",
-          display: "inline-block",
-        }}
-      />
+      <span className="w-[7px] h-[7px] rounded-full bg-current inline-block" />
       {BAND_LABEL[band]}
     </div>
   );
@@ -118,41 +97,16 @@ function BotMessage({
     (data.retrieval_latency_ms || 0) + (data.generation_latency_ms || 0);
 
   return (
-    <div style={{ marginBottom: 26 }}>
+    <div className="mb-[26px]">
       <BandPill band={data.confidence_band} />
-      <div
-        style={{
-          fontFamily: 'Georgia, "Times New Roman", serif',
-          fontSize: 17,
-          whiteSpace: "pre-wrap",
-          borderLeft: "3px solid var(--line)",
-          padding: "2px 0 2px 16px",
-        }}
-      >
+      <div className="font-doc text-[17px] whitespace-pre-wrap border-l-[3px] border-[var(--line)] pt-[2px] pr-0 pb-[2px] pl-4">
         {data.answer}
       </div>
 
       {/* Citations */}
       {data.citations && data.citations.length > 0 && (
-        <details
-          style={{
-            marginTop: 12,
-            border: "1px solid var(--line)",
-            borderRadius: "var(--radius)",
-            background: "#fff",
-            overflow: "hidden",
-          }}
-        >
-          <summary
-            style={{
-              cursor: "pointer",
-              padding: "10px 14px",
-              fontSize: 13,
-              fontWeight: 600,
-              color: "var(--navy)",
-              listStyle: "none",
-            }}
-          >
+        <details className="mt-3 border border-[var(--line)] rounded-[var(--radius)] bg-white overflow-hidden">
+          <summary className="cursor-pointer px-[14px] py-[10px] text-[13px] font-semibold text-[var(--navy)] list-none">
             {data.citations.length} source
             {data.citations.length > 1 ? "s" : ""} referenced ▸
           </summary>
@@ -162,26 +116,13 @@ function BotMessage({
               href={c.file_url}
               target="_blank"
               rel="noopener noreferrer"
-              style={{
-                display: "block",
-                textDecoration: "none",
-                color: "inherit",
-                borderTop: "1px solid var(--line)",
-                padding: "12px 14px",
-                fontSize: 13,
-              }}
+              className="block no-underline text-inherit border-t border-[var(--line)] px-[14px] py-3 text-[13px]"
             >
-              <div style={{ fontWeight: 600, color: "var(--navy)" }}>
+              <div className="font-semibold text-[var(--navy)]">
                 {c.document_name} · Section {c.section} · Page {c.page_number}
               </div>
               {c.excerpt && (
-                <div
-                  style={{
-                    color: "var(--muted)",
-                    fontStyle: "italic",
-                    marginTop: 3,
-                  }}
-                >
+                <div className="text-[var(--muted)] italic mt-[3px]">
                   &ldquo;{c.excerpt}&rdquo;
                 </div>
               )}
@@ -190,29 +131,14 @@ function BotMessage({
         </details>
       )}
 
-      {/* Metadata */}
-      {/* <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 10 }}> */}
-        {/* confidence {score} · {lat} ms{data.cached ? " · cached" : ""} */}
-        {/* {data.standalone_query && */}
-          {/* data.standalone_query !== turn.query && */}
-          {/* ` · interpreted as: "${data.standalone_query}"`} */}
-      {/* </div> */}
-
-      {/* <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 10 }}>
-        {lat} ms{data.cached ? " · cached" : ""}
-        {data.standalone_query &&
-          data.standalone_query !== turn.query &&
-          ` · interpreted as: "${data.standalone_query}"`}
-      </div> */}
-
       {data.standalone_query && data.standalone_query !== turn.query && (
-        <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 10 }}>
+        <div className="text-[var(--muted)] text-xs mt-2.5">
           interpreted as: "{data.standalone_query}"
         </div>
       )}
 
       {/* Feedback */}
-      <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+      <div className="mt-2.5 flex gap-2">
         {/* {feedbackDone ? (
           <span style={{ color: "var(--muted)", fontSize: 12 }}>
             Thanks — feedback recorded.
@@ -222,27 +148,13 @@ function BotMessage({
           <>
             <button
               onClick={() => onFeedback(true)}
-              style={{
-                border: "1px solid var(--line)",
-                background: "#fff",
-                borderRadius: 8,
-                padding: "4px 10px",
-                cursor: "pointer",
-                fontSize: 14,
-              }}
+              className="border border-[var(--line)] bg-white rounded-lg px-2.5 py-1 cursor-pointer text-sm"
             >
               👍 Helpful
             </button>
             <button
               onClick={() => onFeedback(false)}
-              style={{
-                border: "1px solid var(--line)",
-                background: "#fff",
-                borderRadius: 8,
-                padding: "4px 10px",
-                cursor: "pointer",
-                fontSize: 14,
-              }}
+              className="border border-[var(--line)] bg-white rounded-lg px-2.5 py-1 cursor-pointer text-sm"
             >
               👎 Not helpful
             </button>
@@ -257,17 +169,11 @@ function BotMessage({
 
 export default function Home() {
   /* ── State ── */
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [sessionsLoaded, setSessionsLoaded] = useState(false);
-  const [archivedSessions, setArchivedSessions] = useState<SessionSummary[]>(
-    []
-  );
   const [activeSessionId, setActiveSessionId] = useState<string>("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [archivedOpen, setArchivedOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -275,109 +181,6 @@ export default function Home() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [turns]);
-
-  /* ── Fetch sessions on mount ── */
-  const fetchSessions = useCallback(async () => {
-    try {
-      const [activeRes, archivedRes] = await Promise.all([
-        fetch(`${API_SESSIONS}?status=active`),
-        fetch(`${API_SESSIONS}?status=archived`),
-      ]);
-      if (activeRes.ok) {
-        const data = await activeRes.json();
-        setSessions(data.sessions || []);
-      }
-      if (archivedRes.ok) {
-        const data = await archivedRes.json();
-        setArchivedSessions(data.sessions || []);
-      }
-    } catch {
-      /* offline — start fresh */
-    } finally {
-      setSessionsLoaded(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchSessions().then(() => {
-      /* handled in the effect below */
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  /* ── Auto-select or create session on mount ── */
-  useEffect(() => {
-    if (!sessionsLoaded) return;
-    if (activeSessionId) return; // already picked
-    if (sessions.length > 0) {
-      switchSession(sessions[0].session_id);
-    } else {
-      handleNewChat();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessions, sessionsLoaded]);
-
-  /* ── Load turn history for a session ── */
-  async function switchSession(sid: string) {
-    setActiveSessionId(sid);
-    try {
-      const res = await fetch(`${API_SESSIONS}/${sid}`);
-      if (res.ok) {
-        const data = await res.json();
-        const loaded: Turn[] = (data.turns || []).map(
-          (t: { role: string; content: string }) =>
-            t.role === "user"
-              ? ({ type: "user", text: t.content } as UserTurn)
-              : ({
-                  type: "bot",
-                  query: "",
-                  data: {
-                    answer: t.content,
-                    confidence_band: "found" as ConfidenceBand,
-                    citations: [],
-                    confidence_score: 1,
-                  },
-                  feedbackDone: true,
-                } as BotTurn)
-        );
-        setTurns(loaded);
-      } else {
-        setTurns([]);
-      }
-    } catch {
-      setTurns([]);
-    }
-    inputRef.current?.focus();
-  }
-
-  /* ── New chat ── */
-  async function handleNewChat() {
-    const sid = newSessionId();
-    try {
-      await fetch(`${API_SESSIONS}?session_id=${sid}`, { method: "POST" });
-    } catch {
-      /* will be auto-created on first query */
-    }
-    setActiveSessionId(sid);
-    setTurns([]);
-    await fetchSessions();
-    inputRef.current?.focus();
-  }
-
-  /* ── Archive ── */
-  async function handleArchive(sid: string, e?: React.MouseEvent) {
-    e?.stopPropagation();
-    try {
-      await fetch(`${API_SESSIONS}/${sid}/archive`, { method: "PATCH" });
-    } catch {
-      /* ignore */
-    }
-    if (activeSessionId === sid) {
-      setActiveSessionId("");
-      setTurns([]);
-    }
-    await fetchSessions();
-  }
 
   /* ── Feedback ── */
   async function handleFeedback(index: number, helpful: boolean) {
@@ -462,139 +265,29 @@ export default function Home() {
         className={`sidebar-overlay ${sidebarOpen ? "" : "hidden"}`}
         onClick={() => setSidebarOpen(false)}
       />
-
-      {/* ─── Sidebar ─── */}
-      <aside className={`sidebar ${sidebarOpen ? "" : "collapsed"}`}>
-        <div className="sidebar-header">
-          <h2>Conversations</h2>
-          <button className="btn-new-chat" onClick={handleNewChat}>
-            <span style={{ fontSize: 18 }}>＋</span> New Chat
-          </button>
-        </div>
-
-        <div className="session-list">
-          {sessions.map((s) => (
-            // <button
-            //   key={s.session_id}
-            //   className={`session-item ${
-            //     s.session_id === activeSessionId ? "active" : ""
-            //   }`}
-            //   onClick={() => switchSession(s.session_id)}
-            // >
-            <div
-              key={s.session_id}
-              role="button"
-              tabIndex={0}
-              className={`session-item ${
-                s.session_id === activeSessionId ? "active" : ""
-              }`}
-              onClick={() => switchSession(s.session_id)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") switchSession(s.session_id);
-              }}
-            >
-              <div className="session-item-content">
-                <div className="session-title">
-                  {s.title || "New chat"}
-                </div>
-                <div className="session-meta">
-                  {s.turn_count} turn{s.turn_count !== 1 ? "s" : ""}
-                </div>
-              </div>
-              <button
-                className="session-archive-btn"
-                onClick={(e) => handleArchive(s.session_id, e)}
-                title="Archive"
-              >
-                🗃
-              </button>
-            </div>
-          ))}
-          {sessions.length === 0 && (
-            <div
-              style={{
-                padding: "20px 16px",
-                color: "var(--muted)",
-                fontSize: 13,
-                textAlign: "center",
-              }}
-            >
-              No conversations yet
-            </div>
-          )}
-        </div>
-
-        {/* Archived section */}
-        {archivedSessions.length > 0 && (
-          <div className="archived-section">
-            <button
-              className="archived-toggle"
-              onClick={() => setArchivedOpen(!archivedOpen)}
-            >
-              <span
-                style={{
-                  transform: archivedOpen ? "rotate(90deg)" : "rotate(0)",
-                  transition: "transform 0.15s ease",
-                  display: "inline-block",
-                }}
-              >
-                ▸
-              </span>
-              Archived ({archivedSessions.length})
-            </button>
-            {archivedOpen && (
-              <div className="archived-list">
-                {archivedSessions.map((s) => (
-                  <button
-                    key={s.session_id}
-                    className="session-item"
-                    onClick={() => switchSession(s.session_id)}
-                  >
-                    <div className="session-item-content">
-                      <div className="session-title">
-                        {s.title || "Archived chat"}
-                      </div>
-                      <div className="session-meta">
-                        {s.turn_count} turn{s.turn_count !== 1 ? "s" : ""}
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </aside>
-
       {/* ─── Chat Area ─── */}
       <div className="chat-area">
         {/* Header */}
-        <header className="chat-header">
-          <button
-            className="sidebar-toggle"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            ☰
-          </button>
-          <div className="chat-header-title">
-            Ask<span style={{ color: "var(--navy)" }}>IITK</span>
-          </div>
-          <div style={{ color: "var(--muted)", fontSize: 13 }}>
-            Every claim cited from official documents.
-          </div>
+        <header className="flex m-2 items-center">
+            <Image src="https://anc-website-blond.vercel.app/_next/image?url=%2Fimages%2Flogo%2Fanc_logo2.png&w=128&q=75"
+            width={40}
+            height={40}
+            alt="AnC logo"
+            className="m-2"
+            />
+            <h2 className="text-3xl m-2">
+            Ask<span className="text-[var(--navy)]">IITK</span>
+            </h2>
         </header>
 
         {/* Messages or welcome */}
         {!hasMessages ? (
           <div className="welcome-screen">
-            <div className="welcome-icon">📚</div>
             <h2>
-              Ask<span style={{ color: "var(--navy)" }}>IITK</span>
+              Ask<span className="text-[var(--navy)]">IITK</span>
             </h2>
             <p>
-              Ask about credits, grading, attendance, backlogs, or branch-change
-              rules. If the documents don&apos;t cover it, I&apos;ll say so
-              rather than guess.
+              Ask questions from the UG Manual
             </p>
           </div>
         ) : (
@@ -602,19 +295,8 @@ export default function Home() {
             <div className="chat-thread-inner">
               {turns.map((turn, i) =>
                 turn.type === "user" ? (
-                  <div key={i} style={{ textAlign: "right", marginBottom: 26 }}>
-                    <div
-                      style={{
-                        display: "inline-block",
-                        background: "var(--navy)",
-                        color: "#fff",
-                        padding: "10px 14px",
-                        borderRadius:
-                          "var(--radius) var(--radius) 2px var(--radius)",
-                        maxWidth: "80%",
-                        textAlign: "left",
-                      }}
-                    >
+                  <div key={i} className="text-right mb-[26px]">
+                    <div className="inline-block bg-[var(--navy)] text-white px-[14px] py-2.5 rounded-[var(--radius)_var(--radius)_2px_var(--radius)] max-w-[80%] text-left">
                       {turn.text}
                     </div>
                   </div>
@@ -628,17 +310,9 @@ export default function Home() {
               )}
 
               {loading && (
-                <div style={{ marginBottom: 26 }}>
+                <div className="mb-[26px]">
                   <BandPill band="found" />
-                  <div
-                    style={{
-                      fontFamily: 'Georgia, "Times New Roman", serif',
-                      fontSize: 17,
-                      borderLeft: "3px solid var(--line)",
-                      padding: "2px 0 2px 16px",
-                      color: "var(--muted)",
-                    }}
-                  >
+                  <div className="font-doc text-[17px] border-l-[3px] border-[var(--line)] pt-[2px] pr-0 pb-[2px] pl-4 text-[var(--muted)]">
                     Thinking…
                   </div>
                 </div>

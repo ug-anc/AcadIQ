@@ -1,7 +1,11 @@
 @import "tailwindcss";
 
+@theme {
+  --font-doc: Georgia, "Times New Roman", serif;
+}
+
 :root {
-  --paper: #faf8f3;
+  --paper: #ffffff;
   --ink: #1c1b19;
   --muted: #6f6a61;
   --line: #e4ded2;
@@ -10,7 +14,7 @@
   --amber: #9a6700;
   --amber-soft: #fbf3e0;
   --stop: #8a2b2b;
-  --stop-soft: #f7e9e9;
+  --stop-soft: #ffffff;
   --radius: 12px;
   --sidebar-w: 280px;
 }

@@ -18,6 +18,16 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "anc-website-blond.vercel.app",
+        port: "",
+        pathname: "/**", // Allows all sub-paths including logo assets
+      },
+    ],
+  },
 };
 
 export default nextConfig;
