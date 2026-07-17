@@ -10,7 +10,7 @@ interface Message {
 
 export default function ChatBox() {
   const [messages, setMessages] = useState<Message[]>([
-    { question: "What is IITK famous for?", answer: "IIT Kanpur is globally renowned for its academic rigor, research contributions, and sprawling 1055-acre green campus." }
+    { question: "What all can you do?", answer: "I can answer questions from the UG Manual" }
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
