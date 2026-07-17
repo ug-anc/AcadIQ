@@ -283,10 +283,10 @@ def get_llm() -> LLM:
     if _LLM is not None:
         return _LLM
     settings = get_settings()
-    # _LLM = OpenAILLM(settings) if settings.LLM_PROVIDER == "openai" else LocalExtractiveLLM()
-    print("DEBUG: FORCING OPENAILLM (Groq) PROVIDER")
-    _LLM = OpenAILLM(settings)
-
+    if settings.LLM_PROVIDER == "openai":
+        _LLM = OpenAILLM(settings)
+    else:
+        _LLM = LocalExtractiveLLM()
     return _LLM
 
 
