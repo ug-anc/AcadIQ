@@ -38,5 +38,6 @@ sentence_transformers
 
 psycopg[binary]
 pgvector
+google-cloud-firestore
 
 npm

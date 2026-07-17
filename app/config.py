@@ -22,8 +22,9 @@ import os
 class Settings(BaseSettings):
     from dotenv import load_dotenv
     load_dotenv()  
+    load_dotenv("app/.env")
     model_config = SettingsConfigDict(
-        env_file=".env", case_sensitive=True, extra="ignore"
+        env_file=(".env", "app/.env"), case_sensitive=True, extra="ignore"
     )
 
     # ---- Mode -------------------------------------------------------------
@@ -96,15 +97,19 @@ class Settings(BaseSettings):
 
     # ----------------------------------------------------------------------
     def resolve_providers(self) -> None:
-        """In demo mode, pin every provider to its local implementation."""
+        """In demo mode, pin every provider to its local implementation,
+        unless specific keys are explicitly set for testing.
+        """
         if self.DEMO_MODE:
-            self.EMBEDDING_PROVIDER = "local"
-            self.LLM_PROVIDER = "local"
-            self.RERANKER = "identity"
+            # If keys are provided, allow using remote providers even in demo/local testing
+            self.LLM_PROVIDER = "openai" if self.GROQ_API_KEY else "local"
+            self.EMBEDDING_PROVIDER = "openai" if self.OPENAI_API_KEY else "local"
+            self.RERANKER = "cohere" if self.COHERE_API_KEY else "identity"
             return
         # Outside demo mode, downgrade gracefully if keys are missing.
         if not self.OPENAI_API_KEY:
             self.EMBEDDING_PROVIDER = "local"
+        if not self.GROQ_API_KEY:
             self.LLM_PROVIDER = "local"
         if not self.COHERE_API_KEY:
             self.RERANKER = "identity"
