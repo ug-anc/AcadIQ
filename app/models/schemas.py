@@ -8,15 +8,11 @@ from pydantic import BaseModel, Field, field_validator
 # First-line injection screen. The master system prompt (RULE 5) is the real
 # defense; this just rejects the most blatant attempts before we spend tokens.
 INJECTION_PATTERNS = [
-    # Allow filler words (e.g. "all previous") between the verb and the noun.
-    r"ignore\b[\w\s]{0,40}\b(instructions|rules|prompt)",
-    r"disregard\b[\w\s]{0,40}\b(instructions|rules|prompt|previous|above|prior)",
-    r"you are now",
-    r"system prompt",
-    r"reveal your",
-    r"pretend (to be|you are)",
-    r"jailbreak",
-    r"act as (a|an)",
+    # Highly specific prompt injection patterns to avoid false positives on legitimate queries
+    r"ignore\b[\w\s]{0,40}\b(system\s+instructions|system\s+rules|system\s+prompt)",
+    r"disregard\b[\w\s]{0,40}\b(system\s+instructions|system\s+rules|system\s+prompt|previous\s+instructions|prior\s+instructions)",
+    r"reveal\b[\w\s]{0,40}\b(system\s+prompt|system\s+instructions|instruction\s+set)",
+    r"jailbreak\s+the\s+llm",
 ]
 _COMPILED = [re.compile(p, re.IGNORECASE) for p in INJECTION_PATTERNS]
 

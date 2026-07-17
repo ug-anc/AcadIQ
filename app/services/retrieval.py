@@ -80,6 +80,7 @@ class RetrievalEngine:
             try:
                 query_vec = (await get_embedder().embed([q]))[0]
                 dense = get_vector_store().query(query_vec, s.RETRIEVAL_TOP_K_DENSE)
+                logger.info("Dense retrieval for query '%s' returned %d chunks", q, len(dense))
                 dense_results_list.append(dense)
             except Exception as e:
                 logger.error(f"Dense retrieval error for '{q}': {e}", exc_info=True)
@@ -103,6 +104,7 @@ class RetrievalEngine:
                         for i in ranked
                         if scores[i] > 0
                     ]
+                    logger.info("Sparse retrieval for query '%s' returned %d chunks", q, len(sparse))
                 except Exception as e:
                     logger.error(f"Sparse retrieval error for '{q}': {e}", exc_info=True)
                 sparse_results_list.append(sparse)
@@ -110,15 +112,18 @@ class RetrievalEngine:
         # 3. reciprocal rank fusion of all sources
         all_sources = dense_results_list + sparse_results_list
         fused = reciprocal_rank_fusion(*all_sources)[: s.RETRIEVAL_TOP_K_DENSE]
+        logger.info("Reciprocal Rank Fusion returned %d combined chunks", len(fused))
         if not fused:
             return []
 
         # 4. rerank -> final top-k with relevance scores against the original query
+        logger.info("Running reranker for original query '%s' on %d chunks", orig_query, len(fused))
         reranked = await get_reranker().rerank(
             query=orig_query,
             documents=[c["text"] for c in fused],
             top_n=s.RETRIEVAL_TOP_K_FINAL,
         )
+        logger.info("Reranking completed. Top chunk rerank score: %s", reranked[0][1] if reranked else "N/A")
         results: list[RetrievedChunk] = []
         for idx, relevance in reranked:
             c = fused[idx]

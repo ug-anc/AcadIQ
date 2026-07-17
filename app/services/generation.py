@@ -123,12 +123,16 @@ async def answer_query(
     t0 = time.perf_counter()
     chunks = await engine.retrieve(search_queries, original_query=query)
     retrieval_ms = int((time.perf_counter() - t0) * 1000)
+    logger.info("Retrieved %d candidate chunks in %d ms", len(chunks), retrieval_ms)
 
     if not chunks:
+        logger.warning("No chunks retrieved. Aborting LLM generation.")
         return _not_found_response(0.0, confidence.NOT_FOUND, retrieval_ms, session_id)
 
     decision = confidence.evaluate_confidence(chunks[0].score)
+    logger.info("Top chunk score: %.4f | Decision band: %s | should_generate: %s", chunks[0].score, decision.band, decision.should_generate)
     if not decision.should_generate:
+        logger.warning("Confidence score %.4f is below hard reject threshold. Aborting LLM generation.", decision.score)
         return _not_found_response(
             decision.score, decision.band, retrieval_ms, session_id
         )
@@ -145,13 +149,16 @@ async def answer_query(
     ]
     rendered = render_prompt(s.COLLEGE_NAME, prompt_chunks, query, history)
 
+    logger.info("Sending rendered prompt to LLM...")
     t1 = time.perf_counter()
     raw = await llm.generate(rendered, query)
     generation_ms = int((time.perf_counter() - t1) * 1000)
+    logger.info("LLM responded in %d ms", generation_ms)
 
     # If the model declined (RULE 3 NOT-FOUND text), surface it as not-found.
     cleaned_raw = raw.strip()
     if cleaned_raw.startswith("I could not find a verified answer") or "I could not find a verified answer" in cleaned_raw:
+        logger.warning("LLM output indicates failure to find verified answer.")
         return QueryResponse(
             answer=cleaned_raw,
             citations=[],
@@ -165,6 +172,7 @@ async def answer_query(
 
     # Post-generation citation enforcement: no citation => reject as NOT-FOUND.
     if not validate_citations_present(raw):
+        logger.warning("LLM output is missing valid citations. Rejecting as NOT-FOUND to avoid hallucination.")
         return _not_found_response(
             decision.score, confidence.NOT_FOUND, retrieval_ms, session_id
         )

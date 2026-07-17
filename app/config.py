@@ -22,14 +22,15 @@ import os
 class Settings(BaseSettings):
     from dotenv import load_dotenv
     load_dotenv()  
+    load_dotenv("app/.env")
     model_config = SettingsConfigDict(
-        env_file=".env", case_sensitive=True, extra="ignore"
+        env_file=(".env", "app/.env"), case_sensitive=True, extra="ignore"
     )
 
     # ---- Mode -------------------------------------------------------------
     # DEMO_MODE forces local providers so the app runs with zero API keys.
     # DEMO_MODE: bool = True
-    DEMO_MODE: bool = False
+    DEMO_MODE: bool = True
 
     # ---- Providers (overridden to "local" when DEMO_MODE is true) ---------
     EMBEDDING_PROVIDER: Literal["openai", "local"] = "openai"
@@ -53,8 +54,8 @@ class Settings(BaseSettings):
 
     # ---- Vector store -----------------------------------------------------
     # Prototype uses an embedded persistent Chroma client (no server needed).
-    # CHROMA_PERSIST_DIR: str = "storage/chroma"
-    # CHROMA_COLLECTION: str = "academiq_chunks"
+    CHROMA_PERSIST_DIR: str = "app/storage/chroma"
+    CHROMA_COLLECTION: str = "academiq_chunks"
 
     # ---- Retrieval tuning -------------------------------------------------
     RETRIEVAL_TOP_K_DENSE: int = 20
@@ -82,10 +83,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_MINUTE: int = 30
 
     # ---- Feedback store ---------------------------------------------------
-    FEEDBACK_DB_PATH: str = "storage/feedback.db"
+    FEEDBACK_DB_PATH: str = "app/storage/feedback.db"
 
     # ---- Document corpus --------------------------------------------------
-    PDF_DIR: str = "data/pdfs"
+    PDF_DIR: str = "app/data"
     COLLEGE_NAME: str = "IIT KANPUR"
 
     # ---- Session / multi-turn ---------------------------------------------
@@ -93,19 +94,22 @@ class Settings(BaseSettings):
     SESSION_CONTEXTUALIZER_MODEL: str = "llama-3.1-8b-instant"
 
     # ---- Database ---------------------------------------------------------
-    DATABASE_URL: str = os.getenv("DATABASE_URL")
 
     # ----------------------------------------------------------------------
     def resolve_providers(self) -> None:
-        """In demo mode, pin every provider to its local implementation."""
+        """In demo mode, pin every provider to its local implementation,
+        unless specific keys are explicitly set for testing.
+        """
         if self.DEMO_MODE:
-            self.EMBEDDING_PROVIDER = "local"
-            self.LLM_PROVIDER = "local"
-            self.RERANKER = "identity"
+            # If keys are provided, allow using remote providers even in demo/local testing
+            self.LLM_PROVIDER = "openai" if self.GROQ_API_KEY else "local"
+            self.EMBEDDING_PROVIDER = "openai" if self.OPENAI_API_KEY else "local"
+            self.RERANKER = "cohere" if self.COHERE_API_KEY else "identity"
             return
         # Outside demo mode, downgrade gracefully if keys are missing.
         if not self.OPENAI_API_KEY:
             self.EMBEDDING_PROVIDER = "local"
+        if not self.GROQ_API_KEY:
             self.LLM_PROVIDER = "local"
         if not self.COHERE_API_KEY:
             self.RERANKER = "identity"

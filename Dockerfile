@@ -1,22 +1,33 @@
+# Use a lightweight official Python image
 FROM python:3.11-slim
 
-# System deps: tesseract for OCR (DR-06), build tools for native wheels.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        tesseract-ocr \
-        build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# Prevent Python from writing pyc files and buffering stdout/stderr
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8080
 
+# Set the working directory
 WORKDIR /app
 
+# Install system dependencies (e.g., tesseract-ocr if OCR is needed at runtime)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Copy the application code
+COPY app/ ./app/
+COPY static/ ./static/
 
-EXPOSE 8000
+# Copy the pre-built vector database so the container is self-contained and stateless
+# (Assumes you have run ingestion locally before building the image)
+COPY app/storage/ ./app/storage/
 
-# Ingest the sample corpus at build time so the image is queryable out of the box.
-# In production, mount data/pdfs and run `python -m scripts.ingest` instead.
-RUN python -m scripts.load_sample_corpus || true
+# Expose the port Cloud Run expects
+EXPOSE 8080
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Command to run the FastAPI app
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]

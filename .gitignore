@@ -1,3 +1,4 @@
+
 # --- Python Environment ---
 .venv/
 venv/
@@ -36,3 +37,6 @@ next-frontend/.eslintcache
 .DS_Store
 Thumbs.db
 *.log
+.gemini/
+scratch_debug_generate.py
+scratch_debug_rerank.py
