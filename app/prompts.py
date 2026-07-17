@@ -52,6 +52,12 @@ RETRIEVED MANUAL CHUNKS (FACTUAL DOCUMENTATION - TRUTH SOURCE):
 STUDENT QUESTION: {USER_QUERY}
 """
 
+QUERY_REWRITE_PROMPT = (
+    "Expand this short student query into a single complete question suitable for "
+    "searching an academic policy manual. Keep it to one sentence. Do not answer "
+    "it. Query: {query}"
+)
+
 QUERY_TRANSLATION_PROMPT = """\
 Rewrite the following user query into 2-3 distinct, direct search terms or factual statements that map directly to university student academic policy manuals. 
 Focus on academic rules, student guidelines, and university terminology (e.g., medical leave, short leave, semester leave, registration, credit limits, CGPA, courses) rather than corporate or employee policies (avoid terms like "annual leave" or "sick leave").
