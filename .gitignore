@@ -12,14 +12,12 @@ __pycache__/
 .env.example
 
 # --- Local Data and Databases ---
-storage/
 data/
 *.db
 *.sqlite
-# Add these for your Chroma/Vector DBs
-chroma/
-chroma_db/
-.chromadb/
+!app/storage/
+!app/storage/chroma/
+!app/storage/chroma/**
 
 # --- Frontend (Next.js/Node) ---
 next-frontend/node_modules/
