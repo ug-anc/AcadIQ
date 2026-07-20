@@ -114,8 +114,11 @@ async def answer_query(
     search_queries = [query]
     if s.ENABLE_QUERY_REWRITE:
         try:
-            search_queries = await llm.rewrite_query_to_search_terms(query)
-            logger.info("Rewrote query '%s' to search terms: %s", query, search_queries)
+            rewritten = await llm.rewrite_query_to_search_terms(query)
+            # Combine original query + unique rewritten search terms
+            extra_terms = [t for t in rewritten if t.strip().lower() != query.strip().lower()]
+            search_queries = [query] + extra_terms[:2]
+            logger.info("Expanded query '%s' to search terms: %s", query, search_queries)
         except Exception as e:
             logger.error(f"Error in query rewrite step: {e}", exc_info=True)
             search_queries = [query]
