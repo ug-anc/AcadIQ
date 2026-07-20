@@ -1,43 +1,34 @@
 # ---- API ----
-fastapi==0.115.6
-uvicorn[standard]==0.34.0
-pydantic==2.10.4
-pydantic-settings==2.7.1
-python-multipart==0.0.20
-slowapi==0.1.9
+fastapi>=0.110.0,<1.0.0
+uvicorn[standard]>=0.28.0
+pydantic>=2.7.0,<3.0.0
+pydantic-settings>=2.2.0
+python-multipart>=0.0.9
+slowapi>=0.1.9
+python-dotenv>=1.0.0
 
-# ---- Retrieval / ranking ----
-chromadb==0.5.23
-rank-bm25==0.2.2
-numpy==1.26.4
+# ---- Retrieval / Ranking / Vector Store ----
+chromadb>=0.5.0
+rank-bm25>=0.2.2
+numpy>=1.26.0
+sentence-transformers>=2.7.0
+transformers>=4.38.0
 
-# ---- Providers (only needed outside DEMO_MODE) ----
-openai==1.59.6
-cohere==5.13.6
+# ---- LLM & Reranker Providers ----
+openai>=1.30.0
+cohere>=5.5.0
+httpx>=0.27.0,<0.28.0
 
 # ---- Ingestion ----
-PyMuPDF==1.25.1
-pdfplumber==0.11.4
-pytesseract==0.3.13     # requires the system `tesseract` binary for OCR
-Pillow==11.0.0
-tiktoken==0.8.0
+PyMuPDF>=1.24.0
+pdfplumber>=0.11.0
+pytesseract>=0.3.10
+Pillow>=10.0.0
+tiktoken>=0.7.0
 
-# ---- Evaluation (optional) ----
-ragas==0.2.10
-datasets==3.2.0
+# ---- Cloud Infrastructure ----
+google-cloud-firestore>=2.16.0
 
-# ---- Tests ----
-pytest==8.3.4
-pytest-asyncio==0.25.2
-httpx==0.28.1
-
-transformers
-tokenizers
-
-sentence_transformers
-
-psycopg[binary]
-pgvector
-google-cloud-firestore
-
-npm
+# ---- Testing (Optional) ----
+pytest>=8.0.0
+pytest-asyncio>=0.23.0

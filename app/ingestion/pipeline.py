@@ -7,7 +7,7 @@ import os
 
 from app.config import get_settings
 from app.ingestion.chunker import Chunk, chunk_document
-from app.ingestion.extractor import ExtractedDoc, extract_pdf
+from app.ingestion.extractor import ExtractedDoc, extract_pdf, extracted_from_text
 from app.services.embedder import get_embedder
 from app.services.retrieval import get_retrieval_engine
 from app.services.vector_store import get_vector_store
@@ -70,10 +70,16 @@ async def ingest_directory(pdf_dir: str | None = None) -> list[dict]:
     # ------------------------
 
     for fname in sorted(os.listdir(directory)):
-        if fname.lower().endswith((".pdf", ".txt")):
-            path = os.path.join(directory, fname)
+        path = os.path.join(directory, fname)
+        if fname.lower().endswith(".pdf"):
             print(f"Ingesting {fname} ...")
             reports.append(await ingest_pdf(path))
+        elif fname.lower().endswith(".txt"):
+            print(f"Ingesting {fname} (text) ...")
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read()
+            doc = extracted_from_text(fname, text)
+            reports.append(await ingest_extracted(doc))
     return reports
 
 
