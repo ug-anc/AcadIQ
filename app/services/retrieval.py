@@ -62,7 +62,7 @@ class RetrievalEngine:
         self, query_or_queries: str | list[str], original_query: str | None = None
     ) -> list[RetrievedChunk]:
         s = get_settings()
-        if not self._ready:
+        if not self._ready or not self._corpus:
             self.build_bm25()
         if not self._corpus:
             return []
@@ -166,4 +166,14 @@ def get_retrieval_engine() -> RetrievalEngine:
 
 
 async def initialize_retrieval_engine() -> None:
-    get_retrieval_engine().build_bm25()
+    engine = get_retrieval_engine()
+    store = get_vector_store()
+    if store.count() == 0:
+        logger.warning("Vector store is empty (0 chunks). Auto-ingesting documents from app/data...")
+        try:
+            from app.ingestion.pipeline import ingest_directory
+            await ingest_directory("app/data")
+        except Exception as e:
+            logger.error(f"Auto-ingestion on startup failed: {e}", exc_info=True)
+    engine.build_bm25()
+    logger.info(f"Retrieval engine initialized with {store.count()} chunks in corpus.")
