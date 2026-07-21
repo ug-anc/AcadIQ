@@ -63,10 +63,15 @@ class Settings(BaseSettings):
     ENABLE_QUERY_REWRITE: bool = True
 
     # ---- Confidence gate (DR-04: dual threshold) --------------------------
-    # Signal is the reranker relevance score of the top chunk (0..1), or raw
-    # cosine when reranking is unavailable. Tune with eval/calibrate_threshold.py.
+    # These are the DEFAULT thresholds (used by the identity reranker).
+    # When using Cohere reranker, scores are on a probability scale (0.001-0.1
+    # for relevant docs), so much lower thresholds are needed automatically.
     CONFIDENCE_HARD_REJECT: float = 0.30
     CONFIDENCE_SOFT_WARN: float = 0.50
+
+    # Cohere-specific overrides (used when RERANKER == "cohere")
+    COHERE_CONFIDENCE_HARD_REJECT: float = 0.005
+    COHERE_CONFIDENCE_SOFT_WARN: float = 0.05
 
     # ---- Ingestion --------------------------------------------------------
     MAX_SECTION_TOKENS: int = 800

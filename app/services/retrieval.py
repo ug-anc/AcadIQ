@@ -176,4 +176,7 @@ async def initialize_retrieval_engine() -> None:
         except Exception as e:
             logger.error(f"Auto-ingestion on startup failed: {e}", exc_info=True)
     engine.build_bm25()
+    # Pre-load the embedding model so the first query doesn't incur a 7s cold start
+    embedder = get_embedder()
+    await embedder.embed(["warmup"])
     logger.info(f"Retrieval engine initialized with {store.count()} chunks in corpus.")
