@@ -30,8 +30,15 @@ class GateDecision:
 
 def evaluate_confidence(top_score: float) -> GateDecision:
     s = get_settings()
-    if top_score < s.CONFIDENCE_HARD_REJECT:
+    # Use Cohere-calibrated thresholds when Cohere reranker is active
+    if s.RERANKER == "cohere":
+        hard = s.COHERE_CONFIDENCE_HARD_REJECT
+        soft = s.COHERE_CONFIDENCE_SOFT_WARN
+    else:
+        hard = s.CONFIDENCE_HARD_REJECT
+        soft = s.CONFIDENCE_SOFT_WARN
+    if top_score < hard:
         return GateDecision(NOT_FOUND, top_score, should_generate=False)
-    if top_score < s.CONFIDENCE_SOFT_WARN:
+    if top_score < soft:
         return GateDecision(LOW_CONFIDENCE, top_score, should_generate=True)
     return GateDecision(FOUND, top_score, should_generate=True)
