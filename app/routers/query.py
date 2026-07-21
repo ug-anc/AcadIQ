@@ -3,13 +3,15 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from app.config import get_settings
 from app.models.schemas import (
     FeedbackRequest,
     QueryRequest,
     QueryResponse,
+    looks_like_chitchat,
     looks_like_injection,
 )
-from app.prompts import INJECTION_RESPONSE
+from app.prompts import CHITCHAT_RESPONSE, INJECTION_RESPONSE
 from app.security import limiter
 from app.services.cache import get_cache
 from app.services.feedback import record_feedback
@@ -36,6 +38,21 @@ async def query(request: Request, payload: QueryRequest) -> QueryResponse:
             confidence_score=0.0,
             is_found=False,
             confidence_band="not_found",
+            session_id=payload.session_id,
+        )
+
+    # Greetings / "what can you do" meta-questions never have a grounded
+    # answer in the UG Manual — answer them directly instead of running them
+    # through retrieval, where they'd hit the confidence gate and come back
+    # as a cold "not found".
+    if looks_like_chitchat(payload.query):
+        logger.info("Query recognized as chit-chat: '%s'", payload.query)
+        return QueryResponse(
+            answer=CHITCHAT_RESPONSE.format(COLLEGE_NAME=get_settings().COLLEGE_NAME),
+            citations=[],
+            confidence_score=1.0,
+            is_found=True,
+            confidence_band="chitchat",
             session_id=payload.session_id,
         )
 

@@ -20,6 +20,7 @@
     --amber-soft: #fbf3e0;
     --stop: #8a2b2b;
     --stop-soft: #f7e9e9;
+    --muted-soft: #ececea;
     --radius: 12px;
   }
   * { box-sizing: border-box; }
@@ -60,6 +61,7 @@
   .band.found { background: var(--navy-soft); color: var(--navy); }
   .band.low_confidence { background: var(--amber-soft); color: var(--amber); }
   .band.not_found { background: var(--stop-soft); color: var(--stop); }
+  .band.chitchat { background: var(--muted-soft); color: var(--muted); }
   .band .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
   
   /* 2. Markdown Specific Styling changes */
@@ -208,7 +210,7 @@
   }
 
   function bandLabel(band) {
-    return { found: "Verified", low_confidence: "Low confidence", not_found: "Not found" }[band] || band;
+    return { found: "Verified", low_confidence: "Low confidence", not_found: "Not found", chitchat: "Assistant" }[band] || band;
   }
 
   function addBot(data, query) {

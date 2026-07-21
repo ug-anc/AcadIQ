@@ -21,6 +21,35 @@ def looks_like_injection(text: str) -> bool:
     return any(p.search(text) for p in _COMPILED)
 
 
+# Greetings / small talk / "what can you do" meta-questions. Matched against
+# the WHOLE (normalized) query, not as a substring — so "hi, what is the
+# minimum CGPA to avoid probation" still falls through to real retrieval;
+# only messages that are *just* a greeting or meta-question short-circuit.
+_CHITCHAT_PATTERNS = [
+    r"(h+i+|h+e+l+l+o+|h+e+y+|yo+|hola|greetings)(\s+(there|guys|team|everyone|friend|all))?",
+    r"good\s*(morning|afternoon|evening|night)(\s+(there|guys|team|everyone|all))?",
+    r"what'?s\s+up",
+    r"what\s+(all\s+)?can\s+you\s+do",
+    r"what\s+do\s+you\s+do",
+    r"who\s+are\s+you",
+    r"what\s+are\s+you",
+    r"what\s+is\s+this(\s+bot|\s+assistant)?",
+    r"help",
+    r"how\s+can\s+you\s+help(\s+me)?",
+    r"what\s+can\s+(i|you)\s+ask(\s+you)?",
+    r"thanks?|thank\s*you|thx|ty",
+    r"bye|goodbye|see\s*ya",
+]
+_CHITCHAT_RE = re.compile(
+    r"^(?:" + "|".join(_CHITCHAT_PATTERNS) + r")[\s!.,?]*$",
+    re.IGNORECASE,
+)
+
+
+def looks_like_chitchat(text: str) -> bool:
+    return bool(_CHITCHAT_RE.match(text.strip()))
+
+
 # -- UUID4 session_id validation (Fix #1 & #3) --------------------------------
 # Canonical lowercase UUID4 with hyphens: 8-4-4-4-12 hex digits.
 _UUID4_RE = re.compile(
@@ -35,7 +64,7 @@ def is_valid_session_id(value: str) -> bool:
 
 
 class QueryRequest(BaseModel):
-    query: str = Field(..., min_length=3, max_length=500)
+    query: str = Field(..., min_length=2, max_length=500)
     session_id: str = Field(
         ...,
         description="Client-generated UUID4 session identifier",
@@ -74,7 +103,7 @@ class QueryResponse(BaseModel):
     citations: list[SourceCitation] = []
     confidence_score: float
     is_found: bool
-    confidence_band: str  # "found" | "low_confidence" | "not_found"
+    confidence_band: str  # "found" | "low_confidence" | "not_found" | "chitchat"
     cached: bool = False
     session_id: str = ""
     standalone_query: Optional[str] = None  # contextualized query for debugging

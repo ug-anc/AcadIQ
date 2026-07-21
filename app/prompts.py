@@ -17,6 +17,13 @@ INJECTION_RESPONSE = (
     "documents."
 )
 
+CHITCHAT_RESPONSE = (
+    "Hi! I'm Ask IITK, an academic policy assistant for {COLLEGE_NAME}. Ask me "
+    "about things like attendance, leave rules, CGPA and credit requirements, "
+    "registration, or examinations, and I'll answer from the official UG "
+    "Manual with citations. What would you like to know?"
+)
+
 MASTER_SYSTEM_PROMPT = """You are AcademIQ, an academic policy assistant. Use the provided CONTEXT to answer student questions.
 
 RULES:
