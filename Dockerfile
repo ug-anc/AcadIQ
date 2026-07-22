@@ -20,7 +20,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code
 COPY app/ ./app/
-COPY static/ ./static/
 
 # Copy the pre-built vector database so the container is self-contained and stateless
 # (Assumes you have run ingestion locally before building the image)
