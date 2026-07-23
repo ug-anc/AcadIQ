@@ -83,6 +83,41 @@ async def ingest_directory(pdf_dir: str | None = None) -> list[dict]:
     return reports
 
 
+# async def ingest_directory(pdf_dir: str | None = None) -> list[dict]:
+#     s = get_settings()
+
+#     # Resolve absolute path based on project root
+#     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+#     target_dir = pdf_dir or s.PDF_DIR
+
+#     if not os.path.isabs(target_dir):
+#         directory = os.path.join(base_dir, target_dir)
+#     else:
+#         directory = target_dir
+
+#     print(f"DEBUG: Absolute directory resolved to: {directory}")
+
+#     reports: list[dict] = []
+#     if not os.path.isdir(directory):
+#         print(f"[warn] PDF directory not found: {directory}")
+#         return reports
+
+#     print(f"DEBUG: Files found: {os.listdir(directory)}")
+
+#     for fname in sorted(os.listdir(directory)):
+#         path = os.path.join(directory, fname)
+#         if fname.lower().endswith(".pdf"):
+#             print(f"Ingesting {fname} ...")
+#             reports.append(await ingest_pdf(path))
+#         elif fname.lower().endswith(".txt"):
+#             print(f"Ingesting {fname} (text) ...")
+#             with open(path, encoding="utf-8") as fh:
+#                 text = fh.read()
+#             doc = extracted_from_text(fname, text)
+#             reports.append(await ingest_extracted(doc))
+#     return reports
+
+
 def ingest_directory_sync(pdf_dir: str | None = None) -> list[dict]:
     return asyncio.run(ingest_directory(pdf_dir))
 
@@ -91,5 +126,5 @@ def ingest_directory_sync(pdf_dir: str | None = None) -> list[dict]:
 if __name__ == "__main__":
     import asyncio
     # This will trigger the ingestion for your folder
-    results = asyncio.run(ingest_directory())
+    results = asyncio.run(ingest_directory("app/data"))
     print(f"Ingestion complete. Results: {results}")

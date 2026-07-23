@@ -29,7 +29,7 @@ uvicorn app.main:app --reload
 Ingest real PDFs instead of the sample:
 
 ```bash
-cp your_manuals/*.pdf data/pdfs/
+cp your_manuals/*.pdf data/
 python -m scripts.ingest
 ```
 
