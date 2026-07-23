@@ -32,3 +32,5 @@ google-cloud-firestore>=2.16.0
 # ---- Testing (Optional) ----
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
+
+google-cloud-firestore==2.16.0

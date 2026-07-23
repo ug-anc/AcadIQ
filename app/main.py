@@ -19,6 +19,7 @@ from app.routers import query
 from app.routers import session
 from app.security import limiter
 from app.services.retrieval import initialize_retrieval_engine
+from app.routers import feedback
 
 settings = get_settings()
 
@@ -59,4 +60,5 @@ app.include_router(query.router, prefix="/api/v1")
 app.include_router(session.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(health.router)
+app.include_router(feedback.router)
 
