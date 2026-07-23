@@ -107,26 +107,32 @@
 #     finally:
 #         conn.close()
 
-
 from __future__ import annotations
 from datetime import datetime, timezone
-from google.cloud import firestore
-from app.services.firestore import db
+import logging
+
+logger = logging.getLogger(__name__)
 
 def record_feedback(
     *, session_id: str | None, query: str, answer: str, helpful: bool, comment: str | None
 ) -> str:
-    if db is None:
-        raise RuntimeError("Firestore database client is not initialized.")
+    try:
+        from google.cloud import firestore
+        from app.services.firestore import db
 
-    # Explicitly write to the "feedback" collection
-    doc_ref = db.collection("feedback").document()
-    doc_ref.set({
-        "session_id": session_id,
-        "query": query,
-        "answer": answer,
-        "helpful": helpful,
-        "comment": comment,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    })
-    return doc_ref.id
+        if db is None:
+            raise RuntimeError("Firestore database client is not initialized.")
+
+        doc_ref = db.collection("feedback").document()
+        doc_ref.set({
+            "session_id": session_id,
+            "query": query,
+            "answer": answer,
+            "helpful": helpful,
+            "comment": comment,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        return doc_ref.id
+    except Exception as e:
+        logger.error("Failed to write feedback to Firestore: %s", e)
+        raise e
