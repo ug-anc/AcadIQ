@@ -122,8 +122,10 @@ exactly this shape:
 {{"band": "CORRECT" | "INCORRECT" | "AMBIGUOUS", "confidence": <float 0-1>, \
 "reasoning": "<one short sentence>", "relevant_chunk_ids": ["<chunk_id>", ...]}}
 
-relevant_chunk_ids must list only the chunk_id values of passages you judge \
-relevant to answering the question (empty list if band is INCORRECT).\
+relevant_chunk_ids must list the chunk_id of every passage you judge relevant \
+to answering the question — for CORRECT this is usually all or most \
+passages, for AMBIGUOUS only the partially-relevant ones, and for INCORRECT \
+it must be an empty list.\
 """
 
 CRAG_EVALUATOR_USER_TEMPLATE = """\
@@ -134,4 +136,17 @@ RETRIEVED PASSAGES:
 {passages}
 
 JSON:\
+"""
+
+CRAG_REQUERY_PROMPT = """\
+The first retrieval attempt for the question below found no sufficiently \
+relevant passages in the manual. Generate 2-3 alternative search phrasings \
+that differ meaningfully from a literal restatement of the question — use \
+synonyms, official terminology, and broader or narrower framings that might \
+appear in the source manual instead.
+
+Provide the results as a plain text list, one phrasing per line, without \
+numbering, bullets, or commentary.
+
+QUESTION: {query}\
 """

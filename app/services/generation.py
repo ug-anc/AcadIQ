@@ -1,9 +1,12 @@
 """End-to-end answer generation.
 
-Pipeline: retrieve -> confidence gate -> (generate | NOT-FOUND) -> citation
-enforcement -> structured response. The gate runs *before* the LLM, so when the
+Pipeline: retrieve -> CRAG grading (rewrite + retry once on failure) ->
+confidence gate -> (generate | NOT-FOUND) -> citation enforcement ->
+structured response. The confidence gate runs *before* the LLM, so when the
 top chunk is below the hard-reject threshold no generation call is made at all —
-this is the cheapest and strongest hallucination defense.
+this is the cheapest and strongest hallucination defense. CRAG (app.services.crag)
+adds a second, LLM-graded check ahead of it and never reaches outside the
+retrieved documents (no web search).
 
 Multi-turn extension: answer_query_with_history() contextualizes follow-up
 queries via the LLM contextualizer before running the standard pipeline.
@@ -19,7 +22,7 @@ import time
 from app.config import get_settings
 from app.models.schemas import QueryResponse, SourceCitation
 from app.prompts import NOT_FOUND_RESPONSE
-from app.services import confidence
+from app.services import confidence, crag
 from app.services.llm import Chunk, get_llm, render_prompt
 from app.services.retrieval import RetrievedChunk, get_retrieval_engine
 from app.services.session_store import get_session_store
@@ -126,6 +129,16 @@ async def answer_query(
 
     if not chunks:
         return _not_found_response(0.0, confidence.NOT_FOUND, retrieval_ms, session_id)
+
+    # CRAG: grade retrieval quality; rewrite-and-retry once against the same
+    # corpus if it's unusable. Never reaches outside the retrieved documents.
+    final_dicts, crag_band = await crag.apply_crag_eval(
+        query, [crag.chunk_to_dict(c) for c in chunks]
+    )
+    if not final_dicts:
+        logger.info("CRAG band=%s, no chunks survived — returning NOT_FOUND", crag_band)
+        return _not_found_response(0.0, confidence.NOT_FOUND, retrieval_ms, session_id)
+    chunks = [crag.dict_to_chunk(d) for d in final_dicts]
 
     decision = confidence.evaluate_confidence(chunks[0].score)
     if not decision.should_generate:

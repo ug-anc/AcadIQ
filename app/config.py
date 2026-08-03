@@ -93,6 +93,9 @@ class Settings(BaseSettings):
 
     # ---- CRAG (Corrective RAG) ---------------------------------------------
     CRAG_EVAL_MODEL: str = "llama-3.1-8b-instant"
+    # Cap on rewrite-and-retry cycles when retrieval is judged INCORRECT/
+    # AMBIGUOUS-with-nothing-kept, so a persistently bad query can't loop.
+    CRAG_MAX_RETRIES: int = 1
 
     # ----------------------------------------------------------------------
     def resolve_providers(self) -> None:
