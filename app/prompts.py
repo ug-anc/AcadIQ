@@ -102,3 +102,36 @@ LATEST MESSAGE: {raw_query}
 
 STANDALONE QUESTION:\
 """
+
+
+# -- CRAG (Corrective RAG) prompts ------------------------------------------
+
+CRAG_EVALUATOR_SYSTEM_PROMPT = """\
+You are a strict retrieval-quality grader for a RAG system. Given a user \
+question and a list of retrieved passages, judge whether the passages are \
+sufficient to answer the question.
+
+Grading rules:
+- CORRECT: at least one passage directly and fully answers the question.
+- INCORRECT: none of the passages have any topical overlap with the question.
+- AMBIGUOUS: some passages are partially relevant, or only weakly/partially \
+support an answer.
+
+Respond with ONLY compact JSON, no markdown fences, no prose, matching \
+exactly this shape:
+{{"band": "CORRECT" | "INCORRECT" | "AMBIGUOUS", "confidence": <float 0-1>, \
+"reasoning": "<one short sentence>", "relevant_chunk_ids": ["<chunk_id>", ...]}}
+
+relevant_chunk_ids must list only the chunk_id values of passages you judge \
+relevant to answering the question (empty list if band is INCORRECT).\
+"""
+
+CRAG_EVALUATOR_USER_TEMPLATE = """\
+QUESTION:
+{query}
+
+RETRIEVED PASSAGES:
+{passages}
+
+JSON:\
+"""
