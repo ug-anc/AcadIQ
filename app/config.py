@@ -103,6 +103,9 @@ class Settings(BaseSettings):
     # AMBIGUOUS-with-nothing-kept, so a persistently bad query can't loop.
     CRAG_MAX_RETRIES: int = 1
 
+    # ---- Reflection (self-critique / self-correction) ----------------------
+    REFLECTION_MODEL: str = "llama-3.1-8b-instant"
+
     # ----------------------------------------------------------------------
     def resolve_providers(self) -> None:
         """In demo mode, pin every provider to its local implementation,

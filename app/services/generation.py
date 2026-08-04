@@ -2,11 +2,15 @@
 
 Pipeline: retrieve -> CRAG grading (rewrite + retry once on failure) ->
 confidence gate -> (generate | NOT-FOUND) -> citation enforcement ->
-structured response. The confidence gate runs *before* the LLM, so when the
-top chunk is below the hard-reject threshold no generation call is made at all —
-this is the cheapest and strongest hallucination defense. CRAG (app.services.crag)
-adds a second, LLM-graded check ahead of it and never reaches outside the
-retrieved documents (no web search).
+reflection (self-critique + refine, or reject) -> structured response. The
+confidence gate runs *before* the LLM, so when the top chunk is below the
+hard-reject threshold no generation call is made at all — this is the
+cheapest and strongest hallucination defense. CRAG (app.services.crag) adds
+a second, LLM-graded check ahead of it and never reaches outside the
+retrieved documents (no web search). Reflection (app.services.reflection)
+adds a third, LLM-graded check *after* generation: it critiques the answer
+for groundedness against the retrieved chunks and refines or rejects it
+before it is ever returned.
 
 Multi-turn extension: answer_query_with_history() contextualizes follow-up
 queries via the LLM contextualizer before running the standard pipeline.
@@ -21,8 +25,8 @@ import time
 
 from app.config import get_settings
 from app.models.schemas import QueryResponse, SourceCitation
-from app.prompts import NOT_FOUND_RESPONSE
-from app.services import confidence, crag
+from app.prompts import NOT_FOUND_RESPONSE, REFLECTION_FALLBACK_RESPONSE
+from app.services import confidence, crag, reflection
 from app.services.llm import Chunk, get_llm, render_prompt
 from app.services.retrieval import RetrievedChunk, get_retrieval_engine
 from app.services.session_store import get_session_store
@@ -193,8 +197,24 @@ async def answer_query(
             decision.score, confidence.NOT_FOUND, retrieval_ms, session_id
         )
 
-    citations = parse_citations(raw, chunks)
-    answer = raw.strip()
+    # Reflection: self-critique the generated answer for groundedness against
+    # the retrieved chunks, refining it (or rejecting it) before it is ever
+    # returned to the student.
+    context_texts = [c.text for c in chunks]
+    reflected = await reflection.generate_with_reflection(
+        query, context_texts, raw.strip()
+    )
+    if reflected == REFLECTION_FALLBACK_RESPONSE:
+        logger.warning(
+            "Reflection could not verify the answer after retries. "
+            "Rejecting as NOT-FOUND to avoid hallucination."
+        )
+        return _not_found_response(
+            decision.score, confidence.NOT_FOUND, retrieval_ms, session_id
+        )
+
+    citations = parse_citations(reflected, chunks)
+    answer = reflected
     # if decision.band == confidence.LOW_CONFIDENCE:
         # answer = LOW_CONFIDENCE_BANNER + answer
 

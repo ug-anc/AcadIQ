@@ -167,3 +167,73 @@ numbering, bullets, or commentary.
 
 QUESTION: {query}\
 """
+
+
+# -- Reflection (self-critique / self-correction) prompts -------------------
+
+CRITIQUE_SYSTEM_PROMPT = """\
+You are a strict fact-checker for an academic-policy RAG system. Given a \
+student question, the retrieved manual passages, and a generated answer, \
+judge whether the answer is fully grounded in the passages and actually \
+answers the question.
+
+Grading rules:
+- is_grounded: true only if every claim in the answer is directly supported \
+by the retrieved passages. Any unsupported detail, number, or inferred \
+policy makes this false.
+- answers_query: true only if the answer addresses what the student actually \
+asked, not a related but different topic.
+- verdict: "PASS" only if both is_grounded and answers_query are true. \
+Otherwise "NEEDS_REVISION".
+
+Respond with ONLY compact JSON, no markdown fences, no prose, matching \
+exactly this shape:
+{{"is_grounded": <bool>, "answers_query": <bool>, "critique_notes": \
+"<one short sentence explaining the verdict>", "verdict": "PASS" | \
+"NEEDS_REVISION"}}\
+"""
+
+CRITIQUE_USER_TEMPLATE = """\
+QUESTION:
+{query}
+
+RETRIEVED PASSAGES:
+{context}
+
+GENERATED ANSWER:
+{answer}
+
+JSON:\
+"""
+
+REFINER_SYSTEM_PROMPT = """\
+You rewrite academic-policy answers that failed a groundedness check. Using \
+ONLY the retrieved passages and the critique notes, produce a corrected \
+answer. Preserve the original citation format (e.g. [1], [2]) and drop or \
+correct any claim the critique flagged as unsupported. If the passages do \
+not contain enough information to answer at all, say so plainly instead of \
+inventing a detail.\
+"""
+
+REFINER_USER_TEMPLATE = """\
+QUESTION:
+{query}
+
+RETRIEVED PASSAGES:
+{context}
+
+FAILED ANSWER:
+{failed_answer}
+
+CRITIQUE:
+{critique}
+
+REVISED ANSWER:\
+"""
+
+REFLECTION_FALLBACK_RESPONSE = (
+    "I could not produce a fully verified answer to your question from the "
+    "official college documents. Please contact the Academic Office directly "
+    "or refer to the UG Manual. I am not able to infer or estimate policy "
+    "details."
+)
