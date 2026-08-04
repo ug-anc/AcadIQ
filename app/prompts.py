@@ -119,3 +119,76 @@ LATEST MESSAGE: {raw_query}
 
 STANDALONE QUESTION:\
 """
+
+
+# -- Reflection / self-critique prompts (app.services.reflection) -----------
+
+REFLECTION_FALLBACK_RESPONSE = (
+    "I could not verify this information with high confidence from official "
+    "documents."
+)
+
+CRITIQUE_PROMPT = """\
+You are a strict fact-checking evaluator for a Retrieval-Augmented Generation \
+system. Given a user query, the retrieved context passages, and a generated \
+answer, evaluate the answer against three criteria:
+
+1. GROUNDEDNESS: Every factual claim in the answer must be directly supported \
+by the retrieved context. Flag any claim not present in or reasonably \
+inferable from the context as unsupported.
+2. QUERY ANSWERABILITY: The answer must directly and completely address what \
+the user asked. Partial, off-topic, or evasive answers fail this check.
+3. SAFETY & POLICY: The answer must not guess, fabricate, or overstate \
+certainty when the context is silent or ambiguous — it should explicitly say \
+the information is missing rather than invent a plausible-sounding answer.
+
+Respond with ONLY a JSON object matching this schema, no other text:
+{{
+  "is_grounded": bool,
+  "answers_query": bool,
+  "critique_notes": string,
+  "verdict": "PASS" | "NEEDS_REVISION"
+}}
+
+verdict is "PASS" only if is_grounded AND answers_query are both true and there \
+is no safety/policy violation. Otherwise verdict is "NEEDS_REVISION". \
+critique_notes must explain, specifically and concisely, what is missing, \
+hallucinated, or unsafe so a rewriter can fix it.\
+"""
+
+CRITIQUE_USER_TEMPLATE = """\
+QUERY:
+{query}
+
+RETRIEVED CONTEXT:
+{context}
+
+GENERATED ANSWER:
+{answer}\
+"""
+
+REFINER_PROMPT = """\
+You are correcting a flawed answer from a Retrieval-Augmented Generation system.
+
+ORIGINAL QUERY:
+{query}
+
+RETRIEVED CONTEXT (the only source of truth — do not use outside knowledge):
+{context}
+
+FLAWED ANSWER:
+{failed_answer}
+
+CRITIQUE (what is wrong with the flawed answer):
+{critique}
+
+Rewrite the answer so it fixes every issue in the critique:
+- Remove or correct any claim not directly supported by the retrieved context.
+- Fully and directly answer the original query using only the retrieved context.
+- If the context does not contain enough information, say so explicitly instead
+  of guessing.
+- Preserve any existing citation markers (e.g. [1], [2]) that are still valid;
+  do not invent new ones.
+
+Return ONLY the corrected answer text, no preamble or explanation.\
+"""

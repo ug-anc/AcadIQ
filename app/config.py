@@ -98,6 +98,11 @@ class Settings(BaseSettings):
     SESSION_MAX_HISTORY_TURNS: int = 10  # max turns fed to the contextualizer
     SESSION_CONTEXTUALIZER_MODEL: str = "llama-3.1-8b-instant"
 
+    # ---- Reflection / self-critique (app.services.reflection) -------------
+    ENABLE_REFLECTION: bool = False  # opt-in: adds 1-2 extra LLM calls per query
+    REFLECTION_MODEL: str = "llama-3.1-8b-instant"
+    REFLECTION_MAX_RETRIES: int = 1
+
     # ---- Database ---------------------------------------------------------
 
     # ----------------------------------------------------------------------

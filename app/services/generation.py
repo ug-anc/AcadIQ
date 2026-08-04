@@ -21,6 +21,7 @@ from app.models.schemas import QueryResponse, SourceCitation
 from app.prompts import NOT_FOUND_RESPONSE
 from app.services import confidence
 from app.services.llm import Chunk, get_llm, render_prompt
+from app.services.reflection import generate_with_reflection
 from app.services.retrieval import RetrievedChunk, get_retrieval_engine
 from app.services.session_store import get_session_store
 
@@ -184,6 +185,31 @@ async def answer_query(
     answer = raw.strip()
     # if decision.band == confidence.LOW_CONFIDENCE:
         # answer = LOW_CONFIDENCE_BANNER + answer
+
+    # Reflection: check-and-revise the generated answer before it goes out.
+    # Opt-in (adds 1-2 LLM calls of latency) and fails open to the
+    # pre-reflection answer on any error, so it can never block a response.
+    if s.ENABLE_REFLECTION:
+        try:
+            reflected = await generate_with_reflection(
+                query,
+                [c.text for c in chunks],
+                answer,
+                max_reflections=s.REFLECTION_MAX_RETRIES,
+            )
+            if reflected != answer:
+                logger.info("Reflection revised the answer for query '%s'", query[:80])
+                answer = reflected
+                # The revision may have dropped citations (e.g. it fell back
+                # to REFLECTION_FALLBACK_RESPONSE) — re-apply the same
+                # citation enforcement used on the first-pass answer.
+                if not validate_citations_present(answer):
+                    return _not_found_response(
+                        decision.score, confidence.NOT_FOUND, retrieval_ms, session_id
+                    )
+                citations = parse_citations(answer, chunks)
+        except Exception as e:
+            logger.error("Reflection step failed, using pre-reflection answer: %s", e, exc_info=True)
 
     return QueryResponse(
         answer=answer,
