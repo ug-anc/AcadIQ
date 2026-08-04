@@ -19,7 +19,6 @@ from app.prompts import (
     INJECTION_RESPONSE,
     MASTER_SYSTEM_PROMPT,
     NOT_FOUND_RESPONSE,
-    QUERY_REWRITE_PROMPT,
     QUERY_TRANSLATION_PROMPT,
 )
 
@@ -46,10 +45,6 @@ def format_context(chunks: list[Chunk]) -> str:
 class LLM(ABC):
     @abstractmethod
     async def generate(self, system_prompt: str, user_query: str) -> str:
-        ...
-
-    @abstractmethod
-    async def rewrite_query(self, query: str) -> str:
         ...
 
     @abstractmethod
@@ -136,6 +131,7 @@ class OpenAILLM(LLM):
 
 
     async def generate(self, system_prompt: str, user_query: str) -> str:
+        logger.info("Calling LLM generate with model: %s", self._gen_model)
         resp = await self._client.chat.completions.create(
             model=self._gen_model,
             temperature=0.2,
@@ -144,7 +140,9 @@ class OpenAILLM(LLM):
                 {"role": "user", "content": user_query},
             ],
         )
-        return resp.choices[0].message.content or NOT_FOUND_RESPONSE
+        answer = resp.choices[0].message.content or NOT_FOUND_RESPONSE
+        logger.info("LLM generate call successful. Response length: %d characters", len(answer))
+        return answer
 
     async def rewrite_query(self, query: str) -> str:
         resp = await self._client.chat.completions.create(
@@ -283,10 +281,10 @@ def get_llm() -> LLM:
     if _LLM is not None:
         return _LLM
     settings = get_settings()
-    # _LLM = OpenAILLM(settings) if settings.LLM_PROVIDER == "openai" else LocalExtractiveLLM()
-    print("DEBUG: FORCING OPENAILLM (Groq) PROVIDER")
-    _LLM = OpenAILLM(settings)
-
+    if settings.LLM_PROVIDER == "openai":
+        _LLM = OpenAILLM(settings)
+    else:
+        _LLM = LocalExtractiveLLM()
     return _LLM
 
 

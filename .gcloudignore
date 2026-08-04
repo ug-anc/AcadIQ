@@ -1,0 +1,22 @@
+# .gcloudignore file to ensure pre-built ChromaDB files are uploaded to Cloud Build
+.gcloudignore
+.git
+.gitignore
+
+# Virtual Environments
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+
+# Node / Frontend build outputs
+next-frontend/node_modules/
+next-frontend/.next/
+next-frontend/out/
+
+# Force inclusion of pre-built vector DB
+!app/storage/
+!app/storage/chroma/
+!app/storage/chroma/**

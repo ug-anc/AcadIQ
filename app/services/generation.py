@@ -117,8 +117,11 @@ async def answer_query(
     search_queries = [query]
     if s.ENABLE_QUERY_REWRITE:
         try:
-            search_queries = await llm.rewrite_query_to_search_terms(query)
-            logger.info("Rewrote query '%s' to search terms: %s", query, search_queries)
+            rewritten = await llm.rewrite_query_to_search_terms(query)
+            # Combine original query + unique rewritten search terms
+            extra_terms = [t for t in rewritten if t.strip().lower() != query.strip().lower()]
+            search_queries = [query] + extra_terms[:2]
+            logger.info("Expanded query '%s' to search terms: %s", query, search_queries)
         except Exception as e:
             logger.error(f"Error in query rewrite step: {e}", exc_info=True)
             search_queries = [query]
@@ -126,8 +129,10 @@ async def answer_query(
     t0 = time.perf_counter()
     chunks = await engine.retrieve(search_queries, original_query=query)
     retrieval_ms = int((time.perf_counter() - t0) * 1000)
+    logger.info("Retrieved %d candidate chunks in %d ms", len(chunks), retrieval_ms)
 
     if not chunks:
+        logger.warning("No chunks retrieved. Aborting LLM generation.")
         return _not_found_response(0.0, confidence.NOT_FOUND, retrieval_ms, session_id)
 
     # CRAG: grade retrieval quality; rewrite-and-retry once against the same
@@ -141,7 +146,9 @@ async def answer_query(
     chunks = [crag.dict_to_chunk(d) for d in final_dicts]
 
     decision = confidence.evaluate_confidence(chunks[0].score)
+    logger.info("Top chunk score: %.4f | Decision band: %s | should_generate: %s", chunks[0].score, decision.band, decision.should_generate)
     if not decision.should_generate:
+        logger.warning("Confidence score %.4f is below hard reject threshold. Aborting LLM generation.", decision.score)
         return _not_found_response(
             decision.score, decision.band, retrieval_ms, session_id
         )
@@ -158,13 +165,16 @@ async def answer_query(
     ]
     rendered = render_prompt(s.COLLEGE_NAME, prompt_chunks, query, history)
 
+    logger.info("Sending rendered prompt to LLM...")
     t1 = time.perf_counter()
     raw = await llm.generate(rendered, query)
     generation_ms = int((time.perf_counter() - t1) * 1000)
+    logger.info("LLM responded in %d ms", generation_ms)
 
     # If the model declined (RULE 3 NOT-FOUND text), surface it as not-found.
     cleaned_raw = raw.strip()
     if cleaned_raw.startswith("I could not find a verified answer") or "I could not find a verified answer" in cleaned_raw:
+        logger.warning("LLM output indicates failure to find verified answer.")
         return QueryResponse(
             answer=cleaned_raw,
             citations=[],
@@ -178,6 +188,7 @@ async def answer_query(
 
     # Post-generation citation enforcement: no citation => reject as NOT-FOUND.
     if not validate_citations_present(raw):
+        logger.warning("LLM output is missing valid citations. Rejecting as NOT-FOUND to avoid hallucination.")
         return _not_found_response(
             decision.score, confidence.NOT_FOUND, retrieval_ms, session_id
         )

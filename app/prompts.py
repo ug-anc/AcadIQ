@@ -17,6 +17,13 @@ INJECTION_RESPONSE = (
     "documents."
 )
 
+CHITCHAT_RESPONSE = (
+    "Hi! I'm Ask IITK, an academic policy assistant for {COLLEGE_NAME}. Ask me "
+    "about things like attendance, leave rules, CGPA and credit requirements, "
+    "registration, or examinations, and I'll answer from the official UG "
+    "Manual with citations. What would you like to know?"
+)
+
 MASTER_SYSTEM_PROMPT = """You are AcademIQ, an academic policy assistant. Use the provided CONTEXT to answer student questions.
 
 RULES:
@@ -52,18 +59,24 @@ RETRIEVED MANUAL CHUNKS (FACTUAL DOCUMENTATION - TRUTH SOURCE):
 STUDENT QUESTION: {USER_QUERY}
 """
 
-
 QUERY_REWRITE_PROMPT = (
     "Expand this short student query into a single complete question suitable for "
     "searching an academic policy manual. Keep it to one sentence. Do not answer "
     "it. Query: {query}"
 )
 
-
 QUERY_TRANSLATION_PROMPT = """\
-Rewrite the following user query into 2-3 distinct, direct search terms or factual statements that map directly to technical documentation/manuals. 
-Focus on technical/academic policies, rules, and keywords that are likely to appear in the official manual.
-Provide the results as a plain text list with one term/statement per line, without any numbering, bullet points, introduction, or formatting.
+You are a search term generator for a university academic policy manual (UG Manual).
+
+Given a student's question, generate 2-3 search terms that would match SECTIONS in the official manual.
+
+RULES:
+1. PRESERVE DOMAIN TERMS: If the student uses specific terms (e.g., "academic bracket", "short leave", "branch change"), keep those exact terms in at least one search term.
+2. SCENARIO DECOMPOSITION: If the question describes a specific scenario (e.g., "failed in 11 credits", "3rd year student"), decompose it into the UNDERLYING POLICY RULES being asked about. Think: what section of the manual would answer this?
+3. PRESERVE NUMBERS: Keep specific numbers (credits, CGPA, semesters, years) in your search terms.
+4. USE MANUAL VOCABULARY: Use terms like "warning", "probation", "termination", "academic bracket", "CGPA", "credit limit", "semester leave", "short leave" — NOT corporate terms like "annual leave" or "sick leave".
+
+Provide the results as a plain text list with one term per line. No numbering, bullets, or formatting.
 
 User Query: {query}
 """
@@ -88,6 +101,10 @@ independently verify all details.
   H2 — ALWAYS RETRIEVE: Every rewritten query will trigger a fresh document \
 retrieval.  Do NOT answer the question.  Do NOT add information beyond what \
 the student asked.
+  H3 — PRESERVE DETAILS: Keep ALL specific details from the student's latest \
+message: exact numbers (credits, CGPA, semesters), year of study, domain \
+terms ("academic bracket", "short leave"), and scenario conditions. Do NOT \
+generalize or simplify specific scenarios into vague questions.
 
 OUTPUT: Return ONLY the rewritten standalone question — no preamble, no \
 explanation, no numbering.  If the latest message is already self-contained, \

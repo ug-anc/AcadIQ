@@ -21,14 +21,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     from dotenv import load_dotenv
     load_dotenv()  
+    load_dotenv("app/.env")
     model_config = SettingsConfigDict(
-        env_file=".env", case_sensitive=True, extra="ignore"
+        env_file=(".env", "app/.env"), case_sensitive=True, extra="ignore"
     )
 
     # ---- Mode -------------------------------------------------------------
     # DEMO_MODE forces local providers so the app runs with zero API keys.
     # DEMO_MODE: bool = True
-    DEMO_MODE: bool = False
+    DEMO_MODE: bool = True
 
     # ---- Providers (overridden to "local" when DEMO_MODE is true) ---------
     EMBEDDING_PROVIDER: Literal["openai", "local"] = "openai"
@@ -61,10 +62,15 @@ class Settings(BaseSettings):
     ENABLE_QUERY_REWRITE: bool = True
 
     # ---- Confidence gate (DR-04: dual threshold) --------------------------
-    # Signal is the reranker relevance score of the top chunk (0..1), or raw
-    # cosine when reranking is unavailable. Tune with eval/calibrate_threshold.py.
+    # These are the DEFAULT thresholds (used by the identity reranker).
+    # When using Cohere reranker, scores are on a probability scale (0.001-0.1
+    # for relevant docs), so much lower thresholds are needed automatically.
     CONFIDENCE_HARD_REJECT: float = 0.30
     CONFIDENCE_SOFT_WARN: float = 0.50
+
+    # Cohere-specific overrides (used when RERANKER == "cohere")
+    COHERE_CONFIDENCE_HARD_REJECT: float = 0.005
+    COHERE_CONFIDENCE_SOFT_WARN: float = 0.05
 
     # ---- Ingestion --------------------------------------------------------
     MAX_SECTION_TOKENS: int = 800
@@ -81,10 +87,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_MINUTE: int = 30
 
     # ---- Feedback store ---------------------------------------------------
-    FEEDBACK_DB_PATH: str = "storage/feedback.db"
+    FEEDBACK_DB_PATH: str = "app/storage/feedback.db"
 
     # ---- Document corpus --------------------------------------------------
-    PDF_DIR: str = "data/pdfs"
+    PDF_DIR: str = "app/data"
     COLLEGE_NAME: str = "IIT KANPUR"
 
     # ---- Session / multi-turn ---------------------------------------------
@@ -99,15 +105,19 @@ class Settings(BaseSettings):
 
     # ----------------------------------------------------------------------
     def resolve_providers(self) -> None:
-        """In demo mode, pin every provider to its local implementation."""
+        """In demo mode, pin every provider to its local implementation,
+        unless specific keys are explicitly set for testing.
+        """
         if self.DEMO_MODE:
-            self.EMBEDDING_PROVIDER = "local"
-            self.LLM_PROVIDER = "local"
-            self.RERANKER = "identity"
+            # If keys are provided, allow using remote providers even in demo/local testing
+            self.LLM_PROVIDER = "openai" if self.GROQ_API_KEY else "local"
+            self.EMBEDDING_PROVIDER = "openai" if self.OPENAI_API_KEY else "local"
+            self.RERANKER = "cohere" if self.COHERE_API_KEY else "identity"
             return
         # Outside demo mode, downgrade gracefully if keys are missing.
         if not self.OPENAI_API_KEY:
             self.EMBEDDING_PROVIDER = "local"
+        if not self.GROQ_API_KEY:
             self.LLM_PROVIDER = "local"
         if not self.COHERE_API_KEY:
             self.RERANKER = "identity"
